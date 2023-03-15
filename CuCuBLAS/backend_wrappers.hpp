@@ -9,7 +9,6 @@
 
 #include <cuda.h>
 #include "cublas_v2.h"
-#include <cblas.h>
 
 #include <unihelpers.hpp>
 
@@ -77,6 +76,9 @@ void CoCoAdd2Dc(VALUETYPE* dest, long int ldest, VALUETYPE* src, long int lsrc,
 
 #endif
 
+#ifdef BUILD_BLAS_WRAPPERS_FLAG
+#include <cblas.h>
+
 void TransposeTranslate(char TransChar, CBLAS_TRANSPOSE* cblasFlag, cublasOperation_t* cuBLASFlag, long int* ldim, long int dim1, long int dim2);
 
 cublasOperation_t OpCblasToCublas(CBLAS_TRANSPOSE src);
@@ -84,6 +86,8 @@ CBLAS_TRANSPOSE OpCublasToCblas(cublasOperation_t src);
 cublasOperation_t OpCharToCublas(char src);
 CBLAS_TRANSPOSE OpCharToCblas(char src);
 char PrintCublasOp(cublasOperation_t src);
+
+#endif
 
 /// Internally used utils TODO: Is this the correct way softeng wise?
 void cudaCheckErrors();

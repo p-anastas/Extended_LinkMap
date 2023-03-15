@@ -47,7 +47,7 @@ if(${BUILD_BLAS_WRAPPERS_FLAG} EQUAL 1)
 else()
     add_library(unihelpers SHARED
     ${UNIHELP_DIR_SRC}/general_utils.cpp
-    ${UNIHELP_DIR_SRC}/data_management.cpp
+    ${UNIHELP_DIR_SRC}/data_management.cpp    
     ${BACKEND_UNIHELP_DIR_SRC}/backend_util_wrappers.cu
     ${BACKEND_UNIHELP_DIR_SRC}/backend_data_wrappers.cu
     ${BACKEND_UNIHELP_DIR_SRC}/backend_class_wrappers.cu
