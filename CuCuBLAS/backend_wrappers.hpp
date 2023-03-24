@@ -125,12 +125,18 @@ void CoCoFreeAllocAsync(void* backend_data);
 void cublas_wrap_ddot(void* backend_data, void* queue_wrap_p);
 void cublas_wrap_daxpy(void* backend_data, void* queue_wrap_p);
 void cublas_wrap_saxpy(void* backend_data, void* queue_wrap_p);
+
+void cublas_wrap_dgemv(void* backend_data, void* queue_wrap_p);
+
 void cublas_wrap_dgemm(void* backend_data, void* queue_wrap_p);
 void cublas_wrap_sgemm(void* backend_data, void* queue_wrap_p);
 
 void cblas_wrap_ddot(void* backend_data);
 void cblas_wrap_daxpy(void* backend_data);
 void cblas_wrap_saxpy(void* backend_data);
+
+void cblas_wrap_dgemv(void* backend_data);
+
 void cblas_wrap_dgemm(void* backend_data);
 void cblas_wrap_sgemm(void* backend_data);
 

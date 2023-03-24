@@ -124,6 +124,31 @@ void cblas_wrap_dgemm(void* backend_data){
     ptr_ker_translate->beta, (double*) *ptr_ker_translate->C, ptr_ker_translate->ldC);
 }
 
+void cblas_wrap_dgemv(void* backend_data){
+  short lvl = 6;
+  gemv_backend_in<double>* ptr_ker_translate = (gemv_backend_in<double>*) backend_data;
+#ifdef DDEBUG
+  if (ptr_ker_translate->dev_id != -1)
+    warning("cblas_wrap_dgemv: Suspicious device %d instead of -1\n", ptr_ker_translate->dev_id);
+#endif
+#ifdef DDEBUG
+  lprintf(lvl, "cblas_wrap_dgemv: cblas_dgemv(dev_id = %d, TransA = %c\
+    M = %d, N = %d,alpha = %lf, A = %p, lda = %d, \n\
+    beta = %lf, x = %p, incx = %d, y = %p, incy = %d)\n",
+    ptr_ker_translate->dev_id, ptr_ker_translate->TransA,
+    ptr_ker_translate->M, ptr_ker_translate->N, ptr_ker_translate->alpha,
+    (double*) *ptr_ker_translate->A, ptr_ker_translate->ldA,
+    (double*) *ptr_ker_translate->x, ptr_ker_translate->incx,
+    ptr_ker_translate->beta, (double*) *ptr_ker_translate->y, ptr_ker_translate->incy);
+#endif
+  cblas_dgemv(CblasColMajor,
+    OpCharToCblas(ptr_ker_translate->TransA),
+    ptr_ker_translate->M, ptr_ker_translate->N, ptr_ker_translate->alpha,
+    (double*) *ptr_ker_translate->A, ptr_ker_translate->ldA,
+    (double*) *ptr_ker_translate->x, ptr_ker_translate->incx,
+    ptr_ker_translate->beta, (double*) *ptr_ker_translate->y, ptr_ker_translate->incy);
+}
+
 void cblas_wrap_sgemm(void* backend_data){
   short lvl = 6;
   gemm_backend_in<float>* ptr_ker_translate = (gemm_backend_in<float>*) backend_data;
@@ -245,4 +270,36 @@ void cublas_wrap_sgemm(void* backend_data, void* queue_wrap_p){
     (float*) *ptr_ker_translate->B, ptr_ker_translate->ldB,
     &ptr_ker_translate->beta, (float*) *ptr_ker_translate->C, ptr_ker_translate->ldC),
     "cublas_wrap_dgemm: cublasDgemm failed\n");
+}
+
+void cublas_wrap_dgemv(void* backend_data, void* queue_wrap_p){
+  short lvl = 6;
+  gemv_backend_in<double>* ptr_ker_translate = (gemv_backend_in<double>*) backend_data;
+#ifdef DDEBUG
+  int cur_dev_id = CoCoPeLiaGetDevice();
+  if (ptr_ker_translate->dev_id != cur_dev_id)
+    warning("cublas_wrap_dgemv: Changing device %d -> %d\n", cur_dev_id, ptr_ker_translate->dev_id);
+#endif
+#ifdef DDEBUG
+  lprintf(lvl, "cublas_wrap_dgemv: cblas_dgemv(dev_id = %d, TransA = %c\
+    M = %d, N = %d,alpha = %lf, A = %p, lda = %d, \n\
+    beta = %lf, x = %p, incx = %d, y = %p, incy = %d)\n",
+    ptr_ker_translate->dev_id, ptr_ker_translate->TransA,
+    ptr_ker_translate->M, ptr_ker_translate->N, ptr_ker_translate->alpha,
+    (double*) *ptr_ker_translate->A, ptr_ker_translate->ldA,
+    (double*) *ptr_ker_translate->x, ptr_ker_translate->incx,
+    ptr_ker_translate->beta, (double*) *ptr_ker_translate->y, ptr_ker_translate->incy);
+#endif
+#ifdef ENABLE_PARALLEL_BACKEND
+  cublasHandle_t temp_handle = *((cublasHandle_t*)((CQueue_p)queue_wrap_p)->cqueue_backend_data
+    [((CQueue_p)queue_wrap_p)->backend_ctr]);
+#else
+  cublasHandle_t temp_handle = *((cublasHandle_t*)((CQueue_p)queue_wrap_p)->cqueue_backend_data);
+#endif
+  massert(CUBLAS_STATUS_SUCCESS == cublasDgemv(temp_handle, OpCharToCublas(ptr_ker_translate->TransA),
+    ptr_ker_translate->M, ptr_ker_translate->N, &ptr_ker_translate->alpha,
+    (double*) *ptr_ker_translate->A, ptr_ker_translate->ldA,
+    (double*) *ptr_ker_translate->x, ptr_ker_translate->incx,
+    &ptr_ker_translate->beta, (double*) *ptr_ker_translate->y, ptr_ker_translate->incy),
+    "cublas_wrap_dgemv: cublasDgemv failed\n");
 }
