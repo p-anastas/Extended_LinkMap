@@ -221,7 +221,7 @@ void check_benchmark(char *filename){
 	FILE* fp = fopen(filename,"r");
 	if (!fp) {
 		fp = fopen(filename,"w+");
-		if (!fp) error("report_results: LogFile failed to open");
+		if (!fp) error("check_benchmark: LogFile failed to open");
 		else warning("Generating Logfile...");
 		fclose(fp);
 	}
