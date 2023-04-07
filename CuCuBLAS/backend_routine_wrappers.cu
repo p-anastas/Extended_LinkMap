@@ -70,14 +70,6 @@ void CoCoSetPtr(void* wrapped_ptr_and_parent){
 #endif
 }
 
-void CoCoSetTimerAsync(void* wrapped_timer_Ptr){
-  double* timer = (double*) wrapped_timer_Ptr;
-  *timer = csecond();
-#ifdef DEBUG
-  lprintf(6, "CoCoSetTimerAsync(%p) ran succesfully.\n", wrapped_timer_Ptr);
-#endif
-}
-
 void cblas_wrap_daxpy(void* backend_data){
   axpy_backend_in<double>* ptr_ker_translate = (axpy_backend_in<double>*) backend_data;
   cblas_daxpy(ptr_ker_translate->N, ptr_ker_translate->alpha,
