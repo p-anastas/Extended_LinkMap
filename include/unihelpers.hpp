@@ -123,9 +123,13 @@ void CoCoMemcpy2D(void* dest, long int ldest, void* src, long int lsrc, long int
 // Asunchronous Memcpy between two locations WITHOUT synchronous errorchecking. Use with caution.
 void CoCoMemcpyAsync(void* dest, void* src, long long N_bytes, short loc_dest, short loc_src, CQueue_p transfer_medium);
 
-// Asunchronous Memcpy between two locations WITHOUT synchronous errorchecking. Use with caution.
+// Asunchronous Memcpy between two locations WITHOUT synchronous errorchecking.
 void CoCoMemcpy2DAsync(void* dest, long int ldest, void* src, long int lsrc, long int rows, long int cols,
 	short elemSize, short loc_dest, short loc_src, CQueue_p transfer_medium);
+// Asunchronous Memcpy between two locations WITHOUT synchronous errorchecking and with TTEST logging disabled (for avoiding double logs for hop tranfers)
+void CoCoMemcpy2DAsync_noTTs(void* dest, long int ldest, void* src, long int lsrc, long int rows, long int cols,
+	short elemSize, short loc_dest, short loc_src, CQueue_p transfer_medium);
+
 // Print and log bandwidths and links used with CoCoMemcpy2DAsync. Unusable with TTEST flag
 void n_HopMemcpyPrint();
 

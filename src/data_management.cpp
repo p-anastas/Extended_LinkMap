@@ -19,13 +19,14 @@ int inter_hop_locs[10000][5];
 double inter_hop_timers[10000][4][3];
 int timer_ctr[LOC_NUM][LOC_NUM] = {{0}};
 double link_gbytes_s[LOC_NUM][LOC_NUM] = {{0}};
+int hop_log_lock = 0; /// This might slow down things, but it is needed. 
 
 void reseTTEST(){
 	for(int k = 0; k < fast_trans_ctr; k++){
 				bytes[k] = 0;
 				for(int l = 0; l < 5; l++){
 					inter_hop_locs[k][l] = -42;
-					for(int m = 0; m < 3; m++) inter_hop_timers[k][l][m] = 0;
+					if(l < 4) for(int m = 0; m < 3; m++) inter_hop_timers[k][l][m] = 0;
 				} 
 	}
 	fast_trans_ctr = 0;
@@ -41,6 +42,7 @@ void reseTTEST(){
 void FasTCoCoMemcpy2DAsync(link_road_p roadMap, long int rows, long int cols, short elemSize){
 	if(roadMap->hop_num - roadMap->starting_hop < 2) error("FasTCoCoMemcpy2DAsync: Cannot copy with less than 2 locations\n");
 #ifdef TTEST
+	while(__sync_lock_test_and_set(&hop_log_lock, 1));
 	if (roadMap->hop_num > 4) error("FasTCoCoMemcpy2DAsync(dest = %d, src = %d) exeeded 3 intermediate hops in TTEST Mode\n",
 			roadMap->hop_uid_list[roadMap->starting_hop], roadMap->hop_uid_list[roadMap->hop_num]);
 	if (fast_trans_ctr > 10000) error("FasTCoCoMemcpy2DAsync(dest = %d, src = %d) exeeded 10000 transfers in TTEST Mode\n",
@@ -78,7 +80,7 @@ void FasTCoCoMemcpy2DAsync(link_road_p roadMap, long int rows, long int cols, sh
 					(void*) &(inter_hop_timers[fast_trans_ctr][uid_ctr - roadMap->starting_hop][1]));
 			}
 #endif
-			CoCoMemcpy2DAsync(roadMap->hop_buf_list[uid_ctr + 1] + buff_offset_dest, roadMap->hop_ldim_list[uid_ctr + 1],
+			CoCoMemcpy2DAsync_noTTs(roadMap->hop_buf_list[uid_ctr + 1] + buff_offset_dest, roadMap->hop_ldim_list[uid_ctr + 1],
 										roadMap->hop_buf_list[uid_ctr] + buff_offset_src, roadMap->hop_ldim_list[uid_ctr],
 #ifdef SPLIT_2D_ROWISE
 										local_rows, cols, elemSize,
@@ -97,6 +99,7 @@ void FasTCoCoMemcpy2DAsync(link_road_p roadMap, long int rows, long int cols, sh
 #ifdef TTEST
 	inter_hop_locs[fast_trans_ctr][roadMap->hop_num - 1] = roadMap->hop_uid_list[roadMap->hop_num-1];
 	fast_trans_ctr++;
+	__sync_lock_release(&hop_log_lock);
 #endif	
 }
 
