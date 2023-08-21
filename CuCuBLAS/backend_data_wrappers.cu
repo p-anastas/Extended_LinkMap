@@ -225,7 +225,127 @@ void CoCMempy2DAsyncWrap3D(void* dest, long int ldest, void* src, long int ldsrc
 	massert(cudaSuccess == cudaMemcpy3DAsync ( cudaMemcpy3DParms_p, stream) , "cudaMemcpy3DAsync failed\n");
 }
 
+#ifdef TTEST /// C programmers hate him
+int n_trans_ctr = 0;
+long long n_bytes[100000] = {0};
+int n_locs[10000][2];
+double n_timers[100000][3];
+int n_timer_ctr[LOC_NUM][LOC_NUM] = {{0}};
+double n_link_gbytes_s[LOC_NUM][LOC_NUM] = {{0}};
+int my_log_lock = 0; /// This might slow down things, but it is needed. 
+
+void n_reseTTEST(){
+	for(int k = 0; k < n_trans_ctr; k++){
+		n_bytes[k] = 0;
+		for(int m = 0; m < 3; m++) n_timers[k][m] = 0;
+	}
+	n_trans_ctr = 0;
+	for (int d1 = 0; d1 < LOC_NUM; d1++)
+		for (int d2 = 0; d2 < LOC_NUM; d2++){
+			n_timer_ctr[d1][d2] = 0; 
+			n_link_gbytes_s[d1][d2] = 0; 
+		}
+}
+
+void n_HopMemcpyPrint(){
+	lprintf(0,"\n Tranfers Full:\n");
+	FILE* fp = fopen("temp_n_trans.log", "w+");
+	for(int k = 0; k < n_trans_ctr; k++){
+		int src = n_locs[k][0], dest = n_locs[k][1];
+		n_timer_ctr[idxize(dest)][idxize(src)]++;
+		double time = (n_timers[k][2] - n_timers[k][1]), pipe_time = (n_timers[k][2] - n_timers[k][0]);
+		n_link_gbytes_s[idxize(dest)][idxize(src)]+=Gval_per_s(n_bytes[k], time);
+		lprintf(0, "Normal 2D Trasfer %d->%d : total_t = %lf ms ( %.3lf Gb/s ), pipelined_t = %lf ms ( %.3lf Gb/s )\n", 
+			src, dest, 1000*time, Gval_per_s(n_bytes[k], time), 1000*pipe_time, Gval_per_s(n_bytes[k], pipe_time));
+		fprintf(fp, "%d,%d,[ %d %d ],%ld,%lf,%lf,%lf\n", src, dest, src, dest, n_bytes[k], n_timers[k][0], n_timers[k][1], n_timers[k][2]);
+	}
+		
+	lprintf(0,"\n Full Tranfer Map:\n   |");
+	for (int d2 = 0; d2 < LOC_NUM; d2++)
+		lprintf(0, "  %2d  |", deidxize(d2));
+	lprintf(0, "\n   |");
+	for (int d2 = 0; d2 < LOC_NUM; d2++)
+		lprintf(0, "-------");
+	lprintf(0, "\n");
+	for (int d1 = 0; d1 < LOC_NUM; d1++){
+		lprintf(0, "%2d | ", deidxize(d1));
+		for (int d2 = 0; d2 < LOC_NUM; d2++){
+			lprintf(0, "%4d | ", n_timer_ctr[d1][d2]);
+		}
+		lprintf(0, "\n");
+	}
+
+	lprintf(0,"\n Full Tranfer Map Achieved Bandwidths (GB/s):\n   |");
+	for (int d2 = 0; d2 < LOC_NUM; d2++)
+		lprintf(0, "  %2d   |", deidxize(d2));
+	lprintf(0, "\n   |");
+	for (int d2 = 0; d2 < LOC_NUM; d2++)
+		lprintf(0, "--------");
+	lprintf(0, "\n");
+	for (int d1 = 0; d1 < LOC_NUM; d1++){
+		lprintf(0, "%2d | ", deidxize(d1));
+		for (int d2 = 0; d2 < LOC_NUM; d2++)
+			if (n_timer_ctr[d1][d2]) lprintf(0, "%.2lf | ", n_link_gbytes_s[d1][d2]/n_timer_ctr[d1][d2]);
+			else lprintf(0, "  -   | ");
+		lprintf(0, "\n");
+	}
+	fclose(fp);
+	n_reseTTEST();
+}
+#endif 
+
 void CoCoMemcpy2DAsync(void* dest, long int ldest, void* src, long int ldsrc, long int rows, long int cols, short elemSize, short loc_dest, short loc_src, CQueue_p transfer_queue){
+	short lvl = 6;
+#ifdef DDEBUG
+	lprintf(lvl, "CoCoMemcpy2DAsync(dest=%p, ldest =%zu, src=%p, ldsrc = %zu, rows = %zu, cols = %zu, elemsize = %d, loc_dest = %d, loc_src = %d)\n",
+		dest, ldest, src, ldsrc, rows, cols, elemSize, loc_dest, loc_src);
+#endif
+#ifdef TTEST
+	while(__sync_lock_test_and_set(&my_log_lock, 1));
+	if (n_trans_ctr > 100000) error("CoCoMemcpy2DAsync(dest = %d, src = %d) exeeded 100000 transfers in TTEST Mode\n", loc_dest, loc_src);
+	if(!n_trans_ctr) n_reseTTEST();
+	n_bytes[n_trans_ctr] = rows*cols*elemSize;
+	n_locs[n_trans_ctr][0] = loc_src;
+	n_locs[n_trans_ctr][1] = loc_dest;
+#endif
+#ifdef ENABLE_PARALLEL_BACKEND
+	cudaStream_t stream = *((cudaStream_t*)transfer_queue->cqueue_backend_ptr[transfer_queue->backend_ctr]);
+#else
+	cudaStream_t stream = *((cudaStream_t*)transfer_queue->cqueue_backend_ptr);
+#endif
+	int count = 42;
+	massert(CUBLAS_STATUS_SUCCESS == cudaGetDeviceCount(&count), "CoCoMemcpy2DAsync: cudaGetDeviceCount failed\n");
+	massert(-2 < loc_dest && loc_dest < count, "CoCoMemcpyAsync2D: Invalid destination device: %d\n", loc_dest);
+	massert(-2 < loc_src && loc_src < count, "CoCoMemcpyAsync2D: Invalid source device: %d\n", loc_src);
+
+	enum cudaMemcpyKind kind;
+	if (loc_src < 0 && loc_dest < 0) kind = cudaMemcpyHostToHost;
+	else if (loc_dest < 0) kind = cudaMemcpyDeviceToHost;
+	else if (loc_src < 0) kind = cudaMemcpyHostToDevice;
+	else kind = cudaMemcpyDeviceToDevice;
+
+	if (loc_src == loc_dest) warning("CoCoMemcpy2DAsync(dest=%p, ldest =%zu, src=%p, ldsrc = %zu, rows=%zu, cols=%zu, elemSize =%d, loc_dest=%d, loc_src=%d): Source location matches destination\n",
+	dest, ldest, src, ldsrc, rows, cols, elemSize, loc_dest, loc_src);
+#ifdef TTEST
+	CoCoSetTimerAsync(&(n_timers[n_trans_ctr][0]));
+	transfer_queue->add_host_func((void*)&CoCoSetTimerAsync, 
+		(void*) &(n_timers[n_trans_ctr][1]));
+#endif	
+	massert(cudaSuccess == cudaMemcpy2DAsync(dest, ldest*elemSize, src, ldsrc*elemSize,
+		rows*elemSize, cols, kind, stream),  "CoCoMemcpy2DAsync(dest=%p, ldest =%zu, src=%p, ldsrc = %zu,\
+			\nrows = %zu, cols = %zu, elemsize = %d, loc_dest = %d, loc_src = %d): cudaMemcpy2DAsync failed\n",
+			dest, ldest, src, ldsrc, rows, cols, elemSize, loc_dest, loc_src);
+	//if (loc_src == -1 && loc_dest >=0) massert(CUBLAS_STATUS_SUCCESS == cublasSetMatrixAsync(rows, cols, elemSize, src, ldsrc, dest, ldest, stream), "CoCoMemcpy2DAsync: cublasSetMatrixAsync failed\n");
+	//else if (loc_src >=0 && loc_dest == -1) massert(CUBLAS_STATUS_SUCCESS == cublasGetMatrixAsync(rows, cols, elemSize, src, ldsrc, dest, ldest, stream),  "CoCoMemcpy2DAsync: cublasGetMatrixAsync failed");
+#ifdef TTEST
+	transfer_queue->add_host_func((void*)&CoCoSetTimerAsync, 
+		(void*) &(n_timers[n_trans_ctr][2]));
+	n_trans_ctr++;
+	__sync_lock_release(&my_log_lock);
+#endif		
+}
+
+void CoCoMemcpy2DAsync_noTTs(void* dest, long int ldest, void* src, long int ldsrc, long int rows, long int cols, short elemSize, short loc_dest, short loc_src, CQueue_p transfer_queue){
 	short lvl = 6;
 #ifdef DDEBUG
 	lprintf(lvl, "CoCoMemcpy2DAsync(dest=%p, ldest =%zu, src=%p, ldsrc = %zu, rows = %zu, cols = %zu, elemsize = %d, loc_dest = %d, loc_src = %d)\n",
@@ -254,7 +374,7 @@ void CoCoMemcpy2DAsync(void* dest, long int ldest, void* src, long int ldsrc, lo
 			\nrows = %zu, cols = %zu, elemsize = %d, loc_dest = %d, loc_src = %d): cudaMemcpy2DAsync failed\n",
 			dest, ldest, src, ldsrc, rows, cols, elemSize, loc_dest, loc_src);
 	//if (loc_src == -1 && loc_dest >=0) massert(CUBLAS_STATUS_SUCCESS == cublasSetMatrixAsync(rows, cols, elemSize, src, ldsrc, dest, ldest, stream), "CoCoMemcpy2DAsync: cublasSetMatrixAsync failed\n");
-	//else if (loc_src >=0 && loc_dest == -1) massert(CUBLAS_STATUS_SUCCESS == cublasGetMatrixAsync(rows, cols, elemSize, src, ldsrc, dest, ldest, stream),  "CoCoMemcpy2DAsync: cublasGetMatrixAsync failed");
+	//else if (loc_src >=0 && loc_dest == -1) massert(CUBLAS_STATUS_SUCCESS == cublasGetMatrixAsync(rows, cols, elemSize, src, ldsrc, dest, ldest, stream),  "CoCoMemcpy2DAsync: cublasGetMatrixAsync failed");	
 }
 
 template<typename VALUETYPE>
