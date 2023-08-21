@@ -246,6 +246,52 @@ void n_reseTTEST(){
 			n_link_gbytes_s[d1][d2] = 0; 
 		}
 }
+
+void n_HopMemcpyPrint(){
+	lprintf(0,"\n Tranfers Full:\n");
+	FILE* fp = fopen("temp_n_trans.log", "w+");
+	for(int k = 0; k < n_trans_ctr; k++){
+		int src = n_locs[k][0], dest = n_locs[k][1];
+		n_timer_ctr[idxize(dest)][idxize(src)]++;
+		double time = (n_timers[k][2] - n_timers[k][1]), pipe_time = (n_timers[k][2] - n_timers[k][0]);
+		n_link_gbytes_s[idxize(dest)][idxize(src)]+=Gval_per_s(n_bytes[k], time);
+		lprintf(0, "Normal 2D Trasfer %d->%d : total_t = %lf ms ( %.3lf Gb/s ), pipelined_t = %lf ms ( %.3lf Gb/s )\n", 
+			src, dest, 1000*time, Gval_per_s(n_bytes[k], time), 1000*pipe_time, Gval_per_s(n_bytes[k], pipe_time));
+		fprintf(fp, "%d,%d,[ %d %d ],%ld,%lf,%lf,%lf\n", src, dest, src, dest, n_bytes[k], n_timers[k][0], n_timers[k][1], n_timers[k][2]);
+	}
+		
+	lprintf(0,"\n Full Tranfer Map:\n   |");
+	for (int d2 = 0; d2 < LOC_NUM; d2++)
+		lprintf(0, "  %2d  |", deidxize(d2));
+	lprintf(0, "\n   |");
+	for (int d2 = 0; d2 < LOC_NUM; d2++)
+		lprintf(0, "-------");
+	lprintf(0, "\n");
+	for (int d1 = 0; d1 < LOC_NUM; d1++){
+		lprintf(0, "%2d | ", deidxize(d1));
+		for (int d2 = 0; d2 < LOC_NUM; d2++){
+			lprintf(0, "%4d | ", n_timer_ctr[d1][d2]);
+		}
+		lprintf(0, "\n");
+	}
+
+	lprintf(0,"\n Full Tranfer Map Achieved Bandwidths (GB/s):\n   |");
+	for (int d2 = 0; d2 < LOC_NUM; d2++)
+		lprintf(0, "  %2d   |", deidxize(d2));
+	lprintf(0, "\n   |");
+	for (int d2 = 0; d2 < LOC_NUM; d2++)
+		lprintf(0, "--------");
+	lprintf(0, "\n");
+	for (int d1 = 0; d1 < LOC_NUM; d1++){
+		lprintf(0, "%2d | ", deidxize(d1));
+		for (int d2 = 0; d2 < LOC_NUM; d2++)
+			if (n_timer_ctr[d1][d2]) lprintf(0, "%.2lf | ", n_link_gbytes_s[d1][d2]/n_timer_ctr[d1][d2]);
+			else lprintf(0, "  -   | ");
+		lprintf(0, "\n");
+	}
+	fclose(fp);
+	n_reseTTEST();
+}
 #endif 
 
 void CoCoMemcpy2DAsync(void* dest, long int ldest, void* src, long int ldsrc, long int rows, long int cols, short elemSize, short loc_dest, short loc_src, CQueue_p transfer_queue){
@@ -330,54 +376,6 @@ void CoCoMemcpy2DAsync_noTTs(void* dest, long int ldest, void* src, long int lds
 	//if (loc_src == -1 && loc_dest >=0) massert(CUBLAS_STATUS_SUCCESS == cublasSetMatrixAsync(rows, cols, elemSize, src, ldsrc, dest, ldest, stream), "CoCoMemcpy2DAsync: cublasSetMatrixAsync failed\n");
 	//else if (loc_src >=0 && loc_dest == -1) massert(CUBLAS_STATUS_SUCCESS == cublasGetMatrixAsync(rows, cols, elemSize, src, ldsrc, dest, ldest, stream),  "CoCoMemcpy2DAsync: cublasGetMatrixAsync failed");	
 }
-
-#ifdef TTEST
-void n_HopMemcpyPrint(){
-	lprintf(0,"\n Tranfers Full:\n");
-	FILE* fp = fopen("temp_n_trans.log", "w+");
-	for(int k = 0; k < n_trans_ctr; k++){
-		int src = n_locs[k][0], dest = n_locs[k][1];
-		n_timer_ctr[idxize(dest)][idxize(src)]++;
-		double time = (n_timers[k][2] - n_timers[k][1]), pipe_time = (n_timers[k][2] - n_timers[k][0]);
-		n_link_gbytes_s[idxize(dest)][idxize(src)]+=Gval_per_s(n_bytes[k], time);
-		lprintf(0, "Normal 2D Trasfer %d->%d : total_t = %lf ms ( %.3lf Gb/s ), pipelined_t = %lf ms ( %.3lf Gb/s )\n", 
-			src, dest, 1000*time, Gval_per_s(n_bytes[k], time), 1000*pipe_time, Gval_per_s(n_bytes[k], pipe_time));
-		fprintf(fp, "%d,%d,[ %d %d ],%ld,%lf,%lf\n", src, dest, src, dest, n_bytes[k], time, pipe_time);
-	}
-		
-	lprintf(0,"\n Full Tranfer Map:\n   |");
-	for (int d2 = 0; d2 < LOC_NUM; d2++)
-		lprintf(0, "  %2d  |", deidxize(d2));
-	lprintf(0, "\n   |");
-	for (int d2 = 0; d2 < LOC_NUM; d2++)
-		lprintf(0, "-------");
-	lprintf(0, "\n");
-	for (int d1 = 0; d1 < LOC_NUM; d1++){
-		lprintf(0, "%2d | ", deidxize(d1));
-		for (int d2 = 0; d2 < LOC_NUM; d2++){
-			lprintf(0, "%4d | ", n_timer_ctr[d1][d2]);
-		}
-		lprintf(0, "\n");
-	}
-
-	lprintf(0,"\n Full Tranfer Map Achieved Bandwidths (GB/s):\n   |");
-	for (int d2 = 0; d2 < LOC_NUM; d2++)
-		lprintf(0, "  %2d   |", deidxize(d2));
-	lprintf(0, "\n   |");
-	for (int d2 = 0; d2 < LOC_NUM; d2++)
-		lprintf(0, "--------");
-	lprintf(0, "\n");
-	for (int d1 = 0; d1 < LOC_NUM; d1++){
-		lprintf(0, "%2d | ", deidxize(d1));
-		for (int d2 = 0; d2 < LOC_NUM; d2++)
-			if (n_timer_ctr[d1][d2]) lprintf(0, "%.2lf | ", n_link_gbytes_s[d1][d2]/n_timer_ctr[d1][d2]);
-			else lprintf(0, "  -   | ");
-		lprintf(0, "\n");
-	}
-	fclose(fp);
-	n_reseTTEST();
-}
-#endif
 
 template<typename VALUETYPE>
 void CoCoVecInit(VALUETYPE *vec, long long length, int seed, short loc)

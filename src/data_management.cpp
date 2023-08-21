@@ -119,7 +119,8 @@ void HopMemcpyPrint(){
 		lprintf(0, "Hop Trasfer %d->%d -> road: %s total_t = %lf ms ( %.3lf Gb/s ), pipelined_t = %lf ms ( %.3lf Gb/s )\n", 
 			inter_hop_locs[k][0], inter_hop_locs[k][iloc], printlist(inter_hop_locs[k], iloc+1),
 		1000*time, Gval_per_s(bytes[k], time), 1000*pipe_time, Gval_per_s(bytes[k], pipe_time));
-		fprintf(fp, "%d,%d,%s,%ld,%lf,%lf\n", inter_hop_locs[k][0], inter_hop_locs[k][iloc], printlist(inter_hop_locs[k], iloc+1), bytes[k], time, pipe_time);
+		fprintf(fp, "%d,%d,%s,%ld,%lf,%lf,%lf\n", inter_hop_locs[k][0], inter_hop_locs[k][iloc], printlist(inter_hop_locs[k], iloc+1), bytes[k], 
+			inter_hop_timers[k][0][0], inter_hop_timers[k][0][1], inter_hop_timers[k][iloc-1][2]);
 		/*for (int inter_transfers = 0; inter_transfers < iloc ; inter_transfers++){
 			double time = (inter_hop_timers[k][inter_transfers][2] - inter_hop_timers[k][inter_transfers][1]), 
 			pipe_time = (inter_hop_timers[k][inter_transfers][2] - inter_hop_timers[k][inter_transfers][0]);
