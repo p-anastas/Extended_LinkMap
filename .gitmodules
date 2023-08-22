@@ -1,0 +1,3 @@
+[submodule "Software-assisted_Memory_Buffer"]
+	path = Software-assisted_Memory_Buffer
+	url = git@github.com:aristomenisTheod/Software-assisted_Memory_Buffer.git

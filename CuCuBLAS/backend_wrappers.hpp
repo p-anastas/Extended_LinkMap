@@ -10,7 +10,7 @@
 #include <cuda.h>
 #include "cublas_v2.h"
 
-#include <unihelpers.hpp>
+#include <linkmap.hpp>
 
 template<typename VALUETYPE> class gemm_backend_in{
 public:

@@ -9,7 +9,7 @@
 #include <float.h>
 #include <curand.h>
 
-#include "unihelpers.hpp"
+#include "linkmap.hpp"
 #include "backend_wrappers.hpp"
 
 #ifdef TTEST /// C programmers hate him
