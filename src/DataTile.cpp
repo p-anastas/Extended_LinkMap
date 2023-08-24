@@ -63,9 +63,6 @@ int DataTile::size() { return get_dtype_size()*dim1*dim2;}
 void DataTile::fetch(int priority_loc_id)
 {
   if (!(WRP == WR || WRP== RONLY)) error("DataTile::fetch called with WRP = %s\n", get_WRP_string());
-  short FetchFromId = get_initial_location();
-  short FetchFromId_idx = idxize(FetchFromId); 
-  StoreBlock[FetchFromId_idx]->add_reader();
   
   set_loc_idx(idxize(priority_loc_id), 2);
 
@@ -79,20 +76,16 @@ void DataTile::fetch(int priority_loc_id)
 
   best_route->optimize(this); // The core of our optimization
 
-  massert(FetchFromId_idx == idxize(best_route->hop_uid_list[0]), 
-    "DataTile::fetch error -> FetchFromId_idx [%d] != idxize(best_route->hop_uid_list[0]) [%d]", 
-    FetchFromId_idx, idxize(best_route->hop_uid_list[0]));
-
 #ifdef DEBUG
   fprintf(stderr, "DataTile::fetch WRP = %s, Road = %s \n", get_WRP_string() ,
     printlist(best_route->hop_uid_list, best_route->hop_num));
 #endif
 
-  best_route->hop_ldim_list[0] = get_chunk_size(FetchFromId_idx);
-	best_route->hop_buf_list[0] = StoreBlock[FetchFromId_idx]->Adrs;
 	CBlock_p block_ptr[best_route->hop_num] = {NULL};
-  block_ptr[0] = StoreBlock[FetchFromId_idx]; 
-
+  block_ptr[0] = StoreBlock[idxize(best_route->hop_uid_list[0])]; 
+  block_ptr[0]->add_reader();
+  best_route->hop_buf_list[0] = block_ptr[0]->Adrs;
+  best_route->hop_ldim_list[0] = get_chunk_size(idxize(best_route->hop_uid_list[0]));
 
 	for(int inter_hop = 1 ; inter_hop < best_route->hop_num; inter_hop++){
     best_route->hop_ldim_list[inter_hop] = get_chunk_size(idxize(best_route->hop_uid_list[inter_hop]));  // TODO: This might be wrong for Tile1D + inc!=1
@@ -141,12 +134,12 @@ void DataTile::fetch(int priority_loc_id)
     CBlock_wrap_p wrap_inval = NULL;
     wrap_inval = (CBlock_wrap_p) malloc (sizeof(struct CBlock_wrap));
     wrap_inval->lockfree = false;
-    wrap_inval->CBlock = StoreBlock[FetchFromId_idx];
+    wrap_inval->CBlock = StoreBlock[idxize(best_route->hop_uid_list[0])];
     used_queue->add_host_func((void*)&CBlock_RR_INV_wrap, (void*) wrap_inval);
   }
   else{
     CBlock_wrap_p wrap_read = (CBlock_wrap_p) malloc (sizeof(struct CBlock_wrap));
-    wrap_read->CBlock = StoreBlock[FetchFromId_idx];
+    wrap_read->CBlock = StoreBlock[idxize(best_route->hop_uid_list[0])];
     wrap_read->lockfree = false;
     used_queue->add_host_func((void*)&CBlock_RR_wrap, (void*) wrap_read);
   }
@@ -197,9 +190,6 @@ void DataTile::writeback(){
       best_route->hop_cqueue_list[inter_hop-1] = wb_queues[idxize(best_route->hop_uid_list[inter_hop])][idxize(best_route->hop_uid_list[inter_hop-1])];
 
     }
-#ifdef DEBUG
-    fprintf(stderr, "test\n");
-#endif
 #ifdef ENABLE_PARALLEL_BACKEND
 		exec_queue[W_master_idx]->set_parallel_backend(W_master_backend_ctr);
 #endif
