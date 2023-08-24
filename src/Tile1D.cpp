@@ -49,10 +49,7 @@ Tile1D::Tile1D(void * in_addr, int in_dim,
 
 Tile1D::~Tile1D()
 {
-  short lvl = 3;
-#ifdef DEBUG
-  lprintf(lvl-1, "|-----> Tile1D(%d)::~Tile1D()\n", Tile1D_num);
-#endif
+  delete W_complete; 
   Tile1D_num--;
 }
 
@@ -61,8 +58,6 @@ long Tile1D::get_chunk_size(int loc_idx){
 }
 
 /*
-
-
 short Tile2D::getWriteBackLoc(){
   return WriteBackLoc;
 }

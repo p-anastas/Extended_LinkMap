@@ -14,9 +14,9 @@
 
 #ifdef TTEST /// C programmers hate him
 int fast_trans_ctr = 0;
-long long bytes[10000] = {0};
-int inter_hop_locs[10000][5];
-double inter_hop_timers[10000][4][3];
+long long bytes[100000] = {0};
+int inter_hop_locs[100000][5];
+double inter_hop_timers[100000][4][3];
 int timer_ctr[LOC_NUM][LOC_NUM] = {{0}};
 double link_gbytes_s[LOC_NUM][LOC_NUM] = {{0}};
 int hop_log_lock = 0; /// This might slow down things, but it is needed. 
@@ -45,56 +45,75 @@ void FasTCoCoMemcpy2DAsync(LinkRoute_p roadMap, long int rows, long int cols, sh
 	while(__sync_lock_test_and_set(&hop_log_lock, 1));
 	if (roadMap->hop_num > 4) error("FasTCoCoMemcpy2DAsync(dest = %d, src = %d) exeeded 3 intermediate hops in TTEST Mode\n",
 			roadMap->hop_uid_list[roadMap->starting_hop], roadMap->hop_uid_list[roadMap->hop_num]);
-	if (fast_trans_ctr > 10000) error("FasTCoCoMemcpy2DAsync(dest = %d, src = %d) exeeded 10000 transfers in TTEST Mode\n",
+	if (fast_trans_ctr > 100000) error("FasTCoCoMemcpy2DAsync(dest = %d, src = %d) exeeded 100000 transfers in TTEST Mode\n",
 			roadMap->hop_uid_list[roadMap->starting_hop], roadMap->hop_uid_list[roadMap->hop_num]);
 	if(!fast_trans_ctr) reseTTEST();
 	bytes[fast_trans_ctr] = rows*cols*elemSize;
 #endif
 	int buffer_bw_overlap = 8;
-	if (rows/buffer_bw_overlap < 100) buffer_bw_overlap = (rows/100) + 1 ;
-	if (cols/buffer_bw_overlap < 100) buffer_bw_overlap = (cols/100) + 1 ;
-	Event_p step_events[roadMap->hop_num][buffer_bw_overlap];
-	for(int uid_ctr = roadMap->starting_hop; uid_ctr < roadMap->hop_num - 1; uid_ctr++){
-#ifdef SPLIT_2D_ROWISE
-		long int local_rows = rows/buffer_bw_overlap;
-#else
-		long int local_cols = cols/buffer_bw_overlap;
-#endif
-		for(int steps = 0; steps < buffer_bw_overlap; steps++){
-			step_events[uid_ctr][steps] = new Event(roadMap->hop_uid_list[uid_ctr+1]);
-#ifdef SPLIT_2D_ROWISE
-			long buff_offset_dest = steps* elemSize * local_rows,
-			buff_offset_src = steps * elemSize * local_rows;
-			if(steps == buffer_bw_overlap -1) local_rows+= rows%buffer_bw_overlap;
-#else
-			long buff_offset_dest = steps* elemSize * local_cols * roadMap->hop_ldim_list[uid_ctr + 1],
-			buff_offset_src = steps * elemSize * local_cols * roadMap->hop_ldim_list[uid_ctr];
-			if(steps == buffer_bw_overlap -1) local_cols+= cols%buffer_bw_overlap;
-#endif
-			if(uid_ctr > 0) roadMap->hop_cqueue_list[uid_ctr]->wait_for_event(step_events[uid_ctr-1][steps]);
+	if (roadMap->hop_num - roadMap->starting_hop == 2){
 #ifdef TTEST
-			if(!steps){
-				inter_hop_locs[fast_trans_ctr][uid_ctr - roadMap->starting_hop] = roadMap->hop_uid_list[uid_ctr];
-				CoCoSetTimerAsync(&(inter_hop_timers[fast_trans_ctr][uid_ctr - roadMap->starting_hop][0]));
-				roadMap->hop_cqueue_list[uid_ctr]->add_host_func((void*)&CoCoSetTimerAsync, 
-					(void*) &(inter_hop_timers[fast_trans_ctr][uid_ctr - roadMap->starting_hop][1]));
+		inter_hop_locs[fast_trans_ctr][0] = roadMap->hop_uid_list[roadMap->starting_hop];
+		CoCoSetTimerAsync(&(inter_hop_timers[fast_trans_ctr][0][0]));
+		roadMap->hop_cqueue_list[roadMap->starting_hop]->add_host_func((void*)&CoCoSetTimerAsync, 
+			(void*) &(inter_hop_timers[fast_trans_ctr][0][1]));
+#endif
+		CoCoMemcpy2DAsync(roadMap->hop_buf_list[roadMap->starting_hop+1], roadMap->hop_ldim_list[roadMap->starting_hop+1],
+										roadMap->hop_buf_list[roadMap->starting_hop], roadMap->hop_ldim_list[roadMap->starting_hop],
+										rows, cols, elemSize,
+										roadMap->hop_uid_list[roadMap->starting_hop+1], roadMap->hop_uid_list[roadMap->starting_hop], roadMap->hop_cqueue_list[roadMap->starting_hop]);
+		roadMap->hop_event_list[roadMap->starting_hop]->record_to_queue(roadMap->hop_cqueue_list[roadMap->starting_hop]);
+#ifdef TTEST
+		roadMap->hop_cqueue_list[roadMap->starting_hop]->add_host_func((void*)&CoCoSetTimerAsync, 
+			(void*) &(inter_hop_timers[fast_trans_ctr][0][2]));
+#endif
+	}
+	else{
+		if (rows/buffer_bw_overlap < 100) buffer_bw_overlap = (rows/100) + 1 ;
+		if (cols/buffer_bw_overlap < 100) buffer_bw_overlap = (cols/100) + 1 ;
+		Event_p step_events[roadMap->hop_num][buffer_bw_overlap];
+		for(int uid_ctr = roadMap->starting_hop; uid_ctr < roadMap->hop_num - 1; uid_ctr++){
+#ifdef SPLIT_2D_ROWISE
+			long int local_rows = rows/buffer_bw_overlap;
+#else
+			long int local_cols = cols/buffer_bw_overlap;
+#endif
+			for(int steps = 0; steps < buffer_bw_overlap; steps++){
+				if(uid_ctr < roadMap->hop_num - 1) step_events[uid_ctr][steps] = new Event(roadMap->hop_uid_list[uid_ctr+1]);
+#ifdef SPLIT_2D_ROWISE
+				long buff_offset_dest = steps* elemSize * local_rows,
+				buff_offset_src = steps * elemSize * local_rows;
+				if(steps == buffer_bw_overlap -1) local_rows+= rows%buffer_bw_overlap;
+#else
+				long buff_offset_dest = steps* elemSize * local_cols * roadMap->hop_ldim_list[uid_ctr + 1],
+				buff_offset_src = steps * elemSize * local_cols * roadMap->hop_ldim_list[uid_ctr];
+				if(steps == buffer_bw_overlap -1) local_cols+= cols%buffer_bw_overlap;
+#endif
+				if(uid_ctr > 0) roadMap->hop_cqueue_list[uid_ctr]->wait_for_event(step_events[uid_ctr-1][steps]);
+#ifdef TTEST
+				if(!steps){
+					inter_hop_locs[fast_trans_ctr][uid_ctr - roadMap->starting_hop] = roadMap->hop_uid_list[uid_ctr];
+					CoCoSetTimerAsync(&(inter_hop_timers[fast_trans_ctr][uid_ctr - roadMap->starting_hop][0]));
+					roadMap->hop_cqueue_list[uid_ctr]->add_host_func((void*)&CoCoSetTimerAsync, 
+						(void*) &(inter_hop_timers[fast_trans_ctr][uid_ctr - roadMap->starting_hop][1]));
+				}
+#endif
+				CoCoMemcpy2DAsync_noTTs(roadMap->hop_buf_list[uid_ctr + 1] + buff_offset_dest, roadMap->hop_ldim_list[uid_ctr + 1],
+											roadMap->hop_buf_list[uid_ctr] + buff_offset_src, roadMap->hop_ldim_list[uid_ctr],
+#ifdef SPLIT_2D_ROWISE
+											local_rows, cols, elemSize,
+#else
+											rows, local_cols, elemSize,
+#endif
+											roadMap->hop_uid_list[uid_ctr + 1], roadMap->hop_uid_list[uid_ctr], roadMap->hop_cqueue_list[uid_ctr]);
+				if(uid_ctr < roadMap->hop_num - 1) step_events[uid_ctr][steps]->record_to_queue(roadMap->hop_cqueue_list[uid_ctr]);
 			}
-#endif
-			CoCoMemcpy2DAsync_noTTs(roadMap->hop_buf_list[uid_ctr + 1] + buff_offset_dest, roadMap->hop_ldim_list[uid_ctr + 1],
-										roadMap->hop_buf_list[uid_ctr] + buff_offset_src, roadMap->hop_ldim_list[uid_ctr],
-#ifdef SPLIT_2D_ROWISE
-										local_rows, cols, elemSize,
-#else
-										rows, local_cols, elemSize,
-#endif
-										roadMap->hop_uid_list[uid_ctr + 1], roadMap->hop_uid_list[uid_ctr], roadMap->hop_cqueue_list[uid_ctr]);
-			step_events[uid_ctr][steps]->record_to_queue(roadMap->hop_cqueue_list[uid_ctr]);
-		}
-		roadMap->hop_event_list[uid_ctr]->record_to_queue(roadMap->hop_cqueue_list[uid_ctr]);
+			roadMap->hop_event_list[uid_ctr]->record_to_queue(roadMap->hop_cqueue_list[uid_ctr]);
 #ifdef TTEST
-	roadMap->hop_cqueue_list[uid_ctr]->add_host_func((void*)&CoCoSetTimerAsync, 
-		(void*) &(inter_hop_timers[fast_trans_ctr][uid_ctr - roadMap->starting_hop][2]));
+		roadMap->hop_cqueue_list[uid_ctr]->add_host_func((void*)&CoCoSetTimerAsync, 
+			(void*) &(inter_hop_timers[fast_trans_ctr][uid_ctr - roadMap->starting_hop][2]));
 #endif
+		}
 	}
 #ifdef TTEST
 	inter_hop_locs[fast_trans_ctr][roadMap->hop_num - 1] = roadMap->hop_uid_list[roadMap->hop_num-1];

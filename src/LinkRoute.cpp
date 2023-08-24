@@ -96,7 +96,7 @@ void LinkRoute::optimize(void* transfer_tile_wrapped){
     }
     //StoreBlock[pos]->update_state(false);
     state temp = transfer_tile->StoreBlock[pos]->State;
-    if (temp == AVAILABLE || temp == SHARABLE || temp == NATIVE){
+    if (temp == AVAILABLE || temp == SHARABLE || temp == NATIVE ){
       event_status block_status = transfer_tile->StoreBlock[pos]->Available->query_status();
 #ifdef ALLOW_FETCH_RECORDED
       if(block_status == COMPLETE || block_status == CHECKED || block_status == RECORDED){
@@ -120,6 +120,7 @@ void LinkRoute::optimize(void* transfer_tile_wrapped){
 #ifdef DEBUG
   fprintf(stderr, "|-----> LinkRoute::optimize(DataTile[%d:%d,%d]): Selecting src = %d for dest = %d\n", transfer_tile->id, transfer_tile->dim1, transfer_tile->dim2, pos_max, end_hop);
 #endif
+/*
   if (pos_max >= LOC_NUM) error("LinkRoute::optimize(DataTile[%d:%d,%d]): No location found for tile - bug\n", transfer_tile->id, transfer_tile->dim1, transfer_tile->dim2);
   //Global_Cache[pos_max]->lock();
   CBlock_p temp_outblock = transfer_tile->StoreBlock[pos_max];
@@ -149,6 +150,8 @@ void LinkRoute::optimize(void* transfer_tile_wrapped){
   }
   else error("Tile1D(%d)::getClosestReadLoc(%d): pos_max = %d selected,\
     but StoreBlock[pos_max] was NULL after locking its cache...fixme\n", transfer_tile->id, end_hop, pos_max);
+    */
+   hop_uid_list[0] = deidxize(pos_max);
   return;
 }
 #endif

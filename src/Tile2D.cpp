@@ -51,7 +51,7 @@ Tile2D::Tile2D(void *in_addr, int in_dim1, int in_dim2,
 
 Tile2D::~Tile2D()
 {
-  short lvl = 3;
+  delete W_complete; 
   Tile2D_num--;
 }
 
