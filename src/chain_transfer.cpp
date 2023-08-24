@@ -39,7 +39,7 @@ void reseTTEST(){
 #endif
 
 //#define SPLIT_2D_ROWISE
-void FasTCoCoMemcpy2DAsync(link_road_p roadMap, long int rows, long int cols, short elemSize){
+void FasTCoCoMemcpy2DAsync(LinkRoute_p roadMap, long int rows, long int cols, short elemSize){
 	if(roadMap->hop_num - roadMap->starting_hop < 2) error("FasTCoCoMemcpy2DAsync: Cannot copy with less than 2 locations\n");
 #ifdef TTEST
 	while(__sync_lock_test_and_set(&hop_log_lock, 1));

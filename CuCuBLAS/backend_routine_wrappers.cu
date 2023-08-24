@@ -15,7 +15,7 @@ void CoCoQueueLock(void* wrapped_lock){
   while(__sync_lock_test_and_set ((&(*((int*)wrapped_lock))), 1));
 #endif
 #ifdef DEBUG
-  lprintf(6, "CoCoQueueLock(%p) ran succesfully.\n", wrapped_lock);
+  fprintf(stderr, "CoCoQueueLock(%p) ran succesfully.\n", wrapped_lock);
 #endif
 }
 
@@ -29,7 +29,7 @@ void CoCoQueueUnlock(void* wrapped_lock){
 #endif
 
 #ifdef DEBUG
-  lprintf(6, "CoCoQueueUnlock(%p) ran succesfully.\n", wrapped_lock);
+  fprintf(stderr, "CoCoQueueUnlock(%p) ran succesfully.\n", wrapped_lock);
 #endif
 }
 
@@ -38,7 +38,7 @@ void CoCoIncAsync(void* wrapped_ptr_int){
   *(unwrapped->ato_int_ptr)++;
   free(unwrapped);
 #ifdef DEBUG
-  lprintf(6, "CoCoIncAsync(%p, new_val=%d) ran succesfully.\n", unwrapped->ato_int_ptr, (*(unwrapped->ato_int_ptr)).load());
+  fprintf(stderr, "CoCoIncAsync(%p, new_val=%d) ran succesfully.\n", unwrapped->ato_int_ptr, (*(unwrapped->ato_int_ptr)).load());
 #endif
 }
 
@@ -47,7 +47,7 @@ void CoCoDecAsync(void* wrapped_ptr_int){
   (*(unwrapped->ato_int_ptr))--;
   free(unwrapped);
 #ifdef DEBUG
-  lprintf(6, "CoCoDecAsync(%p, new_val=%d) ran succesfully.\n", unwrapped->ato_int_ptr, (*(unwrapped->ato_int_ptr)).load());
+  fprintf(stderr, "CoCoDecAsync(%p, new_val=%d) ran succesfully.\n", unwrapped->ato_int_ptr, (*(unwrapped->ato_int_ptr)).load());
 #endif
 }
 
@@ -56,7 +56,7 @@ void CoCoSetInt(void* wrapped_ptr_and_val){
   *(unwrapped->int_ptr) = unwrapped->val;
   free(unwrapped);
 #ifdef DEBUG
-  lprintf(6, "CoCoSetVal(%p, %d) ran succesfully.\n", unwrapped->int_ptr, unwrapped->val);
+  fprintf(stderr, "CoCoSetVal(%p, %d) ran succesfully.\n", unwrapped->int_ptr, unwrapped->val);
 #endif
 }
 
@@ -66,7 +66,7 @@ void CoCoSetPtr(void* wrapped_ptr_and_parent){
   *(unwrapped->ptr_parent) = unwrapped->ptr_val;
   free(unwrapped);
 #ifdef DEBUG
-  lprintf(6, "CoCoSetPtr(prev=%p, %p) ran succesfully.\n", prev_ptr, unwrapped->ptr_val);
+  fprintf(stderr, "CoCoSetPtr(prev=%p, %p) ran succesfully.\n", prev_ptr, unwrapped->ptr_val);
 #endif
 }
 
@@ -92,14 +92,13 @@ void cblas_wrap_ddot(void* backend_data){
 }
 
 void cblas_wrap_dgemm(void* backend_data){
-  short lvl = 6;
   gemm_backend_in<double>* ptr_ker_translate = (gemm_backend_in<double>*) backend_data;
 #ifdef DDEBUG
   if (ptr_ker_translate->dev_id != -1)
     warning("cblas_wrap_dgemm: Suspicious device %d instead of -1\n", ptr_ker_translate->dev_id);
 #endif
 #ifdef DDEBUG
-  lprintf(lvl, "cblas_wrap_dgemm: cblas_dgemm(dev_id = %d, TransA = %c, TransB = %c,\
+  fprintf(stderr,"cblas_wrap_dgemm: cblas_dgemm(dev_id = %d, TransA = %c, TransB = %c,\
     M = %d, N = %d, K = %d, alpha = %lf, A = %p, lda = %d, \n\
     B = %p, ldb = %d, beta = %lf, C = %p, ldC = %d)\n",
     ptr_ker_translate->dev_id, ptr_ker_translate->TransA, ptr_ker_translate->TransB,
@@ -117,14 +116,13 @@ void cblas_wrap_dgemm(void* backend_data){
 }
 
 void cblas_wrap_dgemv(void* backend_data){
-  short lvl = 6;
   gemv_backend_in<double>* ptr_ker_translate = (gemv_backend_in<double>*) backend_data;
 #ifdef DDEBUG
   if (ptr_ker_translate->dev_id != -1)
     warning("cblas_wrap_dgemv: Suspicious device %d instead of -1\n", ptr_ker_translate->dev_id);
 #endif
 #ifdef DDEBUG
-  lprintf(lvl, "cblas_wrap_dgemv: cblas_dgemv(dev_id = %d, TransA = %c\
+  fprintf(stderr,"cblas_wrap_dgemv: cblas_dgemv(dev_id = %d, TransA = %c\
     M = %d, N = %d,alpha = %lf, A = %p, lda = %d, \n\
     beta = %lf, x = %p, incx = %d, y = %p, incy = %d)\n",
     ptr_ker_translate->dev_id, ptr_ker_translate->TransA,
@@ -142,14 +140,13 @@ void cblas_wrap_dgemv(void* backend_data){
 }
 
 void cblas_wrap_sgemm(void* backend_data){
-  short lvl = 6;
   gemm_backend_in<float>* ptr_ker_translate = (gemm_backend_in<float>*) backend_data;
 #ifdef DDEBUG
   if (ptr_ker_translate->dev_id != -1)
     warning("cblas_wrap_sgemm: Suspicious device %d instead of -1\n", ptr_ker_translate->dev_id);
 #endif
 #ifdef DDEBUG
-  lprintf(lvl, "cblas_wrap_sgemm: cblas_dgemm(dev_id = %d, TransA = %c, TransB = %c,\
+  fprintf(stderr,"cblas_wrap_sgemm: cblas_dgemm(dev_id = %d, TransA = %c, TransB = %c,\
     M = %d, N = %d, K = %d, alpha = %lf, A = %p, lda = %d, \n\
     B = %p, ldb = %d, beta = %lf, C = %p, ldC = %d)\n",
     ptr_ker_translate->dev_id, ptr_ker_translate->TransA, ptr_ker_translate->TransB,
@@ -197,16 +194,15 @@ void cublas_wrap_ddot(void* backend_data, void* queue_wrap_p){
 }
 
 void cublas_wrap_dgemm(void* backend_data, void* queue_wrap_p){
-  short lvl = 6;
   gemm_backend_in<double>* ptr_ker_translate = (gemm_backend_in<double>*) backend_data;
-#ifdef DDEBUG
+#ifdef DEBUG
   int cur_dev_id = CoCoPeLiaGetDevice();
   if (ptr_ker_translate->dev_id != cur_dev_id)
     warning("cublas_wrap_dgemm: Changing device %d -> %d\n", cur_dev_id, ptr_ker_translate->dev_id);
 #endif
   CoCoPeLiaSelectDevice(ptr_ker_translate->dev_id);
-#ifdef DDEBUG
-  lprintf(lvl, "cublas_wrap_dgemm: cublasDgemm(dev_id = %d, TransA = %c, TransB = %c,\
+#ifdef DEBUG
+  fprintf(stderr,"cublas_wrap_dgemm: cublasDgemm(dev_id = %d, TransA = %c, TransB = %c,\
     M = %d, N = %d, K = %d, alpha = %lf, A = %p, lda = %d, \n\
     B = %p, ldb = %d, beta = %lf, C = %p, ldC = %d)\n",
     ptr_ker_translate->dev_id, ptr_ker_translate->TransA, ptr_ker_translate->TransB,
@@ -231,7 +227,6 @@ void cublas_wrap_dgemm(void* backend_data, void* queue_wrap_p){
 }
 
 void cublas_wrap_sgemm(void* backend_data, void* queue_wrap_p){
-  short lvl = 6;
   gemm_backend_in<float>* ptr_ker_translate = (gemm_backend_in<float>*) backend_data;
 #ifdef DDEBUG
   int cur_dev_id = CoCoPeLiaGetDevice();
@@ -240,7 +235,7 @@ void cublas_wrap_sgemm(void* backend_data, void* queue_wrap_p){
 #endif
   CoCoPeLiaSelectDevice(ptr_ker_translate->dev_id);
 #ifdef DDEBUG
-  lprintf(lvl, "cublas_wrap_sgemm: cublasDgemm(dev_id = %d, TransA = %c, TransB = %c,\
+  fprintf(stderr,"cublas_wrap_sgemm: cublasDgemm(dev_id = %d, TransA = %c, TransB = %c,\
     M = %d, N = %d, K = %d, alpha = %lf, A = %p, lda = %d, \n\
     B = %p, ldb = %d, beta = %lf, C = %p, ldC = %d)\n",
     ptr_ker_translate->dev_id, ptr_ker_translate->TransA, ptr_ker_translate->TransB,
@@ -265,7 +260,6 @@ void cublas_wrap_sgemm(void* backend_data, void* queue_wrap_p){
 }
 
 void cublas_wrap_dgemv(void* backend_data, void* queue_wrap_p){
-  short lvl = 6;
   gemv_backend_in<double>* ptr_ker_translate = (gemv_backend_in<double>*) backend_data;
 #ifdef DDEBUG
   int cur_dev_id = CoCoPeLiaGetDevice();
@@ -273,7 +267,7 @@ void cublas_wrap_dgemv(void* backend_data, void* queue_wrap_p){
     warning("cublas_wrap_dgemv: Changing device %d -> %d\n", cur_dev_id, ptr_ker_translate->dev_id);
 #endif
 #ifdef DDEBUG
-  lprintf(lvl, "cublas_wrap_dgemv: cblas_dgemv(dev_id = %d, TransA = %c\
+  fprintf(stderr,"cublas_wrap_dgemv: cblas_dgemv(dev_id = %d, TransA = %c\
     M = %d, N = %d,alpha = %lf, A = %p, lda = %d, \n\
     beta = %lf, x = %p, incx = %d, y = %p, incy = %d)\n",
     ptr_ker_translate->dev_id, ptr_ker_translate->TransA,

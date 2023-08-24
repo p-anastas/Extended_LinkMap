@@ -148,8 +148,13 @@ long int CoCoGetMaxDimAsset1D(short Asset1DNum, short dsize, long int step, shor
 
 short CoCoGetPtrLoc(const void * in_ptr);
 
+
+/*****************************************************/
+/// LinkRoute stuff
+
 // Struct for multi-hop optimized transfers
-typedef struct link_road{
+typedef class LinkRoute{
+public:
 	int hop_num;
 	int hop_uid_list[LOC_NUM];
 	void* hop_buf_list[LOC_NUM];
@@ -158,12 +163,16 @@ typedef struct link_road{
 
 	CQueue_p hop_cqueue_list[LOC_NUM-1];
 	Event_p hop_event_list[LOC_NUM-1];
-}* link_road_p;
+
+	void optimize(void* transfer_tile_wrapped); // Target: 0/42 -> 2 [+1] 
+	void optimize_reverse(void* transfer_tile_wrapped); // Target: 42 -> 0 
+}* LinkRoute_p;
 
 // A memcpy implementation using multiple units as intermendiate hops for a better transfer bandwidth
-void FasTCoCoMemcpy2DAsync(link_road_p roadMap, long int rows, long int cols, short elemSize);
+void FasTCoCoMemcpy2DAsync(LinkRoute_p roadMap, long int rows, long int cols, short elemSize);
 // Print and log bandwidths and links used with FasTCoCoMemcpy2DAsync. Unusable with TTEST flag
 void HopMemcpyPrint();
+
 /*****************************************************/
 /// Timers for benchmarks
 // CPU accurate timer
@@ -243,5 +252,12 @@ inline short remote(short loc, short other_loc){ return (loc == other_loc) ? 0 :
 inline int is_in_list(int elem, int* elem_list, int list_len){ for (int idx = 0; idx < list_len; idx++)
 		if(elem_list[idx] == elem) return 1; return 0; }
 void translate_binary_to_unit_list(int case_id, int* active_unit_num_p, int* active_unit_id_list);
+
+extern int transfer_link_sharing[LOC_NUM][LOC_NUM][2];
+extern CQueue_p recv_queues[LOC_NUM][LOC_NUM];
+extern CQueue_p wb_queues[LOC_NUM][LOC_NUM];
+extern CQueue_p exec_queue[LOC_NUM];
+
+extern double final_estimated_link_bw[LOC_NUM][LOC_NUM];
 
 #endif

@@ -195,7 +195,9 @@ void CommandQueue::wait_for_event(Event_p Wevent)
 	else{
 		// TODO: New addition (?)
 		if (Wevent->query_status() == UNRECORDED) {
+#ifdef UDDEBUG
 			warning("CommandQueue::wait_for_event():: UNRECORDED event\n");
+#endif
 			return;
 		}
 		get_lock();
@@ -347,7 +349,7 @@ void Event::record_to_queue(CQueue_p Rr){
 		id, dev_id, Rr->dev_id, prev_dev_id, Rr->dev_id);
 #endif
 	}
-	if (status != UNRECORDED){
+	if (status != UNRECORDED && status != CHECKED){ // TODO: previous -> if (status != UNRECORDED)
 		;
 #ifdef UDEBUG
 		warning("Event(%d,dev_id = %d)::record_to_queue(%d): Recording %s event\n",
@@ -355,12 +357,12 @@ void Event::record_to_queue(CQueue_p Rr){
 #endif
 #ifdef ENABLE_LAZY_EVENTS
 		if(Rr->dev_id != dev_id)
-			error("(Lazy)Event(%d,dev_id = %d)::record_to_queue(%d): Recording %s event in iligal dev\n",
+			error("(Lazy)Event(%d,dev_id = %d)::record_to_queue(%d): Recording %s event in illegal dev\n",
 				id, dev_id, Rr->dev_id, print_event_status(status));
 #endif
 	}
 #ifdef ENABLE_LAZY_EVENTS
-	else if (status == UNRECORDED){
+	else if (status == UNRECORDED || status == CHECKED){ //TODO: previous -> if (status == UNRECORDED)
 		if(dev_id > -1) /// TODO: This used to be an error, but with soft reset it was problematic...is it ok?
 			;//warning("(Lazy)Event(%d,dev_id = %d)::record_to_queue(%d) - UNRECORDED event suspicious dev_id\n",
 			//	id, dev_id, Rr->dev_id);
