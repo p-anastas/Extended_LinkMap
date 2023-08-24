@@ -16,7 +16,7 @@
 int fast_trans_ctr = 0;
 long long bytes[100000] = {0};
 int inter_hop_locs[100000][5];
-double inter_hop_timers[100000][4][3];
+double inter_hop_timers[100000][6][3];
 int timer_ctr[LOC_NUM][LOC_NUM] = {{0}};
 double link_gbytes_s[LOC_NUM][LOC_NUM] = {{0}};
 int hop_log_lock = 0; /// This might slow down things, but it is needed. 
@@ -43,14 +43,14 @@ void FasTCoCoMemcpy2DAsync(LinkRoute_p roadMap, long int rows, long int cols, sh
 	if(roadMap->hop_num - roadMap->starting_hop < 2) error("FasTCoCoMemcpy2DAsync: Cannot copy with less than 2 locations\n");
 #ifdef TTEST
 	while(__sync_lock_test_and_set(&hop_log_lock, 1));
-	if (roadMap->hop_num > 4) error("FasTCoCoMemcpy2DAsync(dest = %d, src = %d) exeeded 3 intermediate hops in TTEST Mode\n",
+	if (roadMap->hop_num > 6) error("FasTCoCoMemcpy2DAsync(dest = %d, src = %d) exeeded 5 intermediate hops in TTEST Mode\n",
 			roadMap->hop_uid_list[roadMap->starting_hop], roadMap->hop_uid_list[roadMap->hop_num]);
 	if (fast_trans_ctr > 100000) error("FasTCoCoMemcpy2DAsync(dest = %d, src = %d) exeeded 100000 transfers in TTEST Mode\n",
 			roadMap->hop_uid_list[roadMap->starting_hop], roadMap->hop_uid_list[roadMap->hop_num]);
 	if(!fast_trans_ctr) reseTTEST();
 	bytes[fast_trans_ctr] = rows*cols*elemSize;
 #endif
-	int buffer_bw_overlap = 8;
+	int buffer_bw_overlap = STREAMING_BUFFER_OVERLAP;
 	if (roadMap->hop_num - roadMap->starting_hop == 2){
 #ifdef TTEST
 		inter_hop_locs[fast_trans_ctr][0] = roadMap->hop_uid_list[roadMap->starting_hop];
@@ -58,7 +58,7 @@ void FasTCoCoMemcpy2DAsync(LinkRoute_p roadMap, long int rows, long int cols, sh
 		roadMap->hop_cqueue_list[roadMap->starting_hop]->add_host_func((void*)&CoCoSetTimerAsync, 
 			(void*) &(inter_hop_timers[fast_trans_ctr][0][1]));
 #endif
-		CoCoMemcpy2DAsync(roadMap->hop_buf_list[roadMap->starting_hop+1], roadMap->hop_ldim_list[roadMap->starting_hop+1],
+		CoCoMemcpy2DAsync_noTTs(roadMap->hop_buf_list[roadMap->starting_hop+1], roadMap->hop_ldim_list[roadMap->starting_hop+1],
 										roadMap->hop_buf_list[roadMap->starting_hop], roadMap->hop_ldim_list[roadMap->starting_hop],
 										rows, cols, elemSize,
 										roadMap->hop_uid_list[roadMap->starting_hop+1], roadMap->hop_uid_list[roadMap->starting_hop], roadMap->hop_cqueue_list[roadMap->starting_hop]);
@@ -135,9 +135,9 @@ void HopMemcpyPrint(){
 		timer_ctr[idxize(dest)][idxize(src)]++;
 		double time = (inter_hop_timers[k][iloc-1][2] - inter_hop_timers[k][0][1]), pipe_time = (inter_hop_timers[k][iloc-1][2] - inter_hop_timers[k][0][0]);
 		link_gbytes_s[idxize(dest)][idxize(src)]+=Gval_per_s(bytes[k], time);
-		lprintf(0, "Hop Trasfer %d->%d -> road: %s total_t = %lf ms ( %.3lf Gb/s ), pipelined_t = %lf ms ( %.3lf Gb/s )\n", 
-			inter_hop_locs[k][0], inter_hop_locs[k][iloc], printlist(inter_hop_locs[k], iloc+1),
-		1000*time, Gval_per_s(bytes[k], time), 1000*pipe_time, Gval_per_s(bytes[k], pipe_time));
+		//lprintf(0, "Hop Trasfer %d->%d -> road: %s total_t = %lf ms ( %.3lf Gb/s ), pipelined_t = %lf ms ( %.3lf Gb/s )\n", 
+		//	inter_hop_locs[k][0], inter_hop_locs[k][iloc], printlist(inter_hop_locs[k], iloc+1),
+		//1000*time, Gval_per_s(bytes[k], time), 1000*pipe_time, Gval_per_s(bytes[k], pipe_time));
 		fprintf(fp, "%d,%d,%s,%ld,%lf,%lf,%lf\n", inter_hop_locs[k][0], inter_hop_locs[k][iloc], printlist(inter_hop_locs[k], iloc+1), bytes[k], 
 			inter_hop_timers[k][0][0], inter_hop_timers[k][0][1], inter_hop_timers[k][iloc-1][2]);
 		/*for (int inter_transfers = 0; inter_transfers < iloc ; inter_transfers++){

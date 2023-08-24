@@ -77,8 +77,8 @@ void DataTile::fetch(int priority_loc_id)
   best_route->optimize(this); // The core of our optimization
 
 #ifdef DEBUG
-  fprintf(stderr, "DataTile::fetch WRP = %s, Road = %s \n", get_WRP_string() ,
-    printlist(best_route->hop_uid_list, best_route->hop_num));
+  fprintf(stderr, "DataTile[%d:%d,%d]::fetch(%d) WRP = %s, Road = %s \n", id, GridId1, GridId2, 
+    priority_loc_id, get_WRP_string(), printlist(best_route->hop_uid_list, best_route->hop_num));
 #endif
 
 	CBlock_p block_ptr[best_route->hop_num] = {NULL};

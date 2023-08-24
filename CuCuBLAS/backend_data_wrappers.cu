@@ -255,8 +255,8 @@ void n_HopMemcpyPrint(){
 		n_timer_ctr[idxize(dest)][idxize(src)]++;
 		double time = (n_timers[k][2] - n_timers[k][1]), pipe_time = (n_timers[k][2] - n_timers[k][0]);
 		n_link_gbytes_s[idxize(dest)][idxize(src)]+=Gval_per_s(n_bytes[k], time);
-		lprintf(0, "Normal 2D Trasfer %d->%d : total_t = %lf ms ( %.3lf Gb/s ), pipelined_t = %lf ms ( %.3lf Gb/s )\n", 
-			src, dest, 1000*time, Gval_per_s(n_bytes[k], time), 1000*pipe_time, Gval_per_s(n_bytes[k], pipe_time));
+		//lprintf(0, "Normal 2D Trasfer %d->%d : total_t = %lf ms ( %.3lf Gb/s ), pipelined_t = %lf ms ( %.3lf Gb/s )\n", 
+		//	src, dest, 1000*time, Gval_per_s(n_bytes[k], time), 1000*pipe_time, Gval_per_s(n_bytes[k], pipe_time));
 		fprintf(fp, "%d,%d,[ %d %d ],%ld,%lf,%lf,%lf\n", src, dest, src, dest, n_bytes[k], n_timers[k][0], n_timers[k][1], n_timers[k][2]);
 	}
 		

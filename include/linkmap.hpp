@@ -52,6 +52,15 @@ typedef class CommandQueue
 		std::string name;
 		void print() { std::cout << "Command Queue : " << name; }
 
+		/*****************************************************/
+		/// PARALia 2.0 - simple timed queues (without slowdowns)
+		// An estimation of when the queue will be free of tasks.
+		double ETA_clocktime = -1; 
+		void ETA_add_task(double task_fire_clocktime, double task_durasion);
+		double ETA_check_task(double task_fire_clocktime, double task_durasion);
+		void ETA_set(double new_ETA);
+		double ETA_get();
+
 }* CQueue_p;
 
 enum event_status{

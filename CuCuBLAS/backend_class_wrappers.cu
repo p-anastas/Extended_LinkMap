@@ -251,6 +251,27 @@ void CommandQueue::set_parallel_backend(int backend_ctr_in)
 #endif
 
 /*****************************************************/
+/// PARALia 2.0 - timed queues
+
+void CommandQueue::ETA_add_task(double task_fire_clocktime, double task_durasion){
+	if(ETA_clocktime < task_fire_clocktime) ETA_clocktime = task_fire_clocktime + task_durasion;
+	else ETA_clocktime+= task_durasion;
+}
+
+double CommandQueue::ETA_check_task(double task_fire_clocktime, double task_durasion){
+	if(ETA_clocktime < task_fire_clocktime) return task_fire_clocktime + task_durasion;
+	else return ETA_clocktime + task_durasion;
+}
+
+void CommandQueue::ETA_set(double new_ETA){
+	ETA_clocktime = new_ETA; 
+}
+
+double CommandQueue::ETA_get(){
+	return ETA_clocktime;
+}
+
+/*****************************************************/
 /// Event class functions. TODO: Do status = .. commands need lock?
 Event::Event(int dev_id_in)
 {
