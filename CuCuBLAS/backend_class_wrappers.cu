@@ -53,7 +53,12 @@ const char* print_event_status(event_status in_status){
 
 /*****************************************************/
 /// Command queue class functions
+
+#ifdef ENABLE_PARALLEL_BACKEND
+CommandQueue::CommandQueue(int dev_id_in, int mode)
+#else
 CommandQueue::CommandQueue(int dev_id_in)
+#endif
 {
 	int prev_dev_id = CoCoPeLiaGetDevice();
 	dev_id = dev_id_in;
@@ -68,12 +73,14 @@ CommandQueue::CommandQueue(int dev_id_in)
 #endif
 	}
 #ifdef ENABLE_PARALLEL_BACKEND
+	simultaneous_workers = MAX_BACKEND_L;
+	if(!mode) simultaneous_workers = 1; 
 #ifdef UDEBUG
-		lprintf(lvl, "[dev_id=%3d] ------- CommandQueue::CommandQueue(): Initializing parallel queue with %d Backend workers\n",
-		dev_id, MAX_BACKEND_L);
+	lprintf(lvl, "[dev_id=%3d] ------- CommandQueue::CommandQueue(): Initializing parallel queue with %d Backend workers\n",
+		dev_id, simultaneous_workers);
 #endif
 	backend_ctr = 0;
-	for (int par_idx = 0; par_idx < MAX_BACKEND_L; par_idx++ ){
+	for (int par_idx = 0; par_idx < simultaneous_workers; par_idx++ ){
 		cqueue_backend_ptr[par_idx] = malloc(sizeof(cudaStream_t));
 		cudaError_t err = cudaStreamCreate((cudaStream_t*) cqueue_backend_ptr[par_idx]);
 		massert(cudaSuccess == err, "CommandQueue::CommandQueue(%d) - %s\n", dev_id, cudaGetErrorString(err));
@@ -117,7 +124,7 @@ CommandQueue::~CommandQueue()
 		sync_barrier();
 		CoCoPeLiaSelectDevice(dev_id);
 #ifdef ENABLE_PARALLEL_BACKEND
-	for (int par_idx = 0; par_idx < MAX_BACKEND_L; par_idx++ ){
+	for (int par_idx = 0; par_idx < simultaneous_workers; par_idx++ ){
 		cudaStream_t stream = *((cudaStream_t*) cqueue_backend_ptr[par_idx]);
 		cudaError_t err = cudaStreamSynchronize(stream);
 		massert(cudaSuccess == err, "CommandQueue::CommandQueue - cudaStreamSynchronize: %s\n", cudaGetErrorString(err));
@@ -151,7 +158,7 @@ void CommandQueue::sync_barrier()
 	lprintf(lvl, "[dev_id=%3d] |-----> CommandQueue::sync_barrier()\n", dev_id);
 #endif
 #ifdef ENABLE_PARALLEL_BACKEND
-	for (int par_idx = 0; par_idx < MAX_BACKEND_L; par_idx++ ){
+	for (int par_idx = 0; par_idx < simultaneous_workers; par_idx++ ){
 		cudaStream_t stream = *((cudaStream_t*) cqueue_backend_ptr[par_idx]);
 		cudaError_t err = cudaStreamSynchronize(stream);
 		massert(cudaSuccess == err, "CommandQueue::sync_barrier - %s\n", cudaGetErrorString(err));
@@ -224,7 +231,7 @@ int CommandQueue::request_parallel_backend()
 	lprintf(lvl, "[dev_id=%3d] |-----> CommandQueue::request_parallel_backend()\n", dev_id);
 #endif
 	get_lock();
-	if (backend_ctr == MAX_BACKEND_L - 1) backend_ctr = 0;
+	if (backend_ctr == simultaneous_workers - 1) backend_ctr = 0;
 	else backend_ctr++;
 	int tmp_backend_ctr = backend_ctr;
 	release_lock();

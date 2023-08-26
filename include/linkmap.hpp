@@ -31,14 +31,15 @@ typedef class CommandQueue
 		void* cqueue_backend_ptr[MAX_BACKEND_L];
 		void* cqueue_backend_data[MAX_BACKEND_L];
 		int backend_ctr = 0;
+		int simultaneous_workers = 1; 
 #else
 		void* cqueue_backend_ptr;
 		void* cqueue_backend_data;
 #endif
 		int dev_id;
 
-		//Constructor
-		CommandQueue(int dev_id);
+		//Constructor - Mode ignored if ENABLE_PARALLEL_BACKEND is not defined
+		CommandQueue(int dev_id, int mode);
 
 		//Destructor
 		~CommandQueue();

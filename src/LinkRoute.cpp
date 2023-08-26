@@ -7,7 +7,7 @@
 LinkMap_p final_estimated_linkmap = NULL;
 double final_estimated_link_bw[LOC_NUM][LOC_NUM];
 
-#define CHAIN_FETCH_RANDOM
+#define P2P_FETCH_FROM_INIT
 
 // Naive fetch from initial data loc every time
 // Similar to cuBLASXt

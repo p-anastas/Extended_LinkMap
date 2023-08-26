@@ -190,10 +190,6 @@ void DataTile::writeback(){
       best_route->hop_cqueue_list[inter_hop-1] = wb_queues[idxize(best_route->hop_uid_list[inter_hop])][idxize(best_route->hop_uid_list[inter_hop-1])];
 
     }
-#ifdef ENABLE_PARALLEL_BACKEND
-		exec_queue[W_master_idx]->set_parallel_backend(W_master_backend_ctr);
-#endif
-    W_complete->record_to_queue(exec_queue[W_master_idx]);
     best_route->hop_cqueue_list[0]->wait_for_event(W_complete);
     CQueue_p used_queue = best_route->hop_cqueue_list[best_route->hop_num-2];
 
