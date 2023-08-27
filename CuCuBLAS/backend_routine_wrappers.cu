@@ -166,12 +166,10 @@ void cblas_wrap_sgemm(void* backend_data){
 void cublas_wrap_daxpy(void* backend_data, void* queue_wrap_p){
   axpy_backend_in<double>* ptr_ker_translate = (axpy_backend_in<double>*) backend_data;
   CoCoPeLiaSelectDevice(ptr_ker_translate->dev_id);
-#ifdef ENABLE_PARALLEL_BACKEND
+
   cublasHandle_t temp_handle = *((cublasHandle_t*)((CQueue_p)queue_wrap_p)->cqueue_backend_data
     [((CQueue_p)queue_wrap_p)->backend_ctr]);
-#else
-  cublasHandle_t temp_handle = *((cublasHandle_t*)((CQueue_p)queue_wrap_p)->cqueue_backend_data);
-#endif
+
   massert(CUBLAS_STATUS_SUCCESS == cublasDaxpy(temp_handle,
     ptr_ker_translate->N, (double*) &ptr_ker_translate->alpha, (double*) *ptr_ker_translate->x,
     ptr_ker_translate->incx, (double*) *ptr_ker_translate->y, ptr_ker_translate->incy),
@@ -181,12 +179,9 @@ void cublas_wrap_daxpy(void* backend_data, void* queue_wrap_p){
 void cublas_wrap_ddot(void* backend_data, void* queue_wrap_p){
   dot_backend_in<double>* ptr_ker_translate = (dot_backend_in<double>*) backend_data;
   CoCoPeLiaSelectDevice(ptr_ker_translate->dev_id);
-#ifdef ENABLE_PARALLEL_BACKEND
   cublasHandle_t temp_handle = *((cublasHandle_t*)((CQueue_p)queue_wrap_p)->cqueue_backend_data
     [((CQueue_p)queue_wrap_p)->backend_ctr]);
-#else
-  cublasHandle_t temp_handle = *((cublasHandle_t*)((CQueue_p)queue_wrap_p)->cqueue_backend_data);
-#endif
+
   massert(CUBLAS_STATUS_SUCCESS == cublasDdot(temp_handle, ptr_ker_translate->N,
       (double*) *ptr_ker_translate->x, ptr_ker_translate->incx, (double*) *ptr_ker_translate->y,
       ptr_ker_translate->incy, (double*)ptr_ker_translate->result),
@@ -201,6 +196,7 @@ void cublas_wrap_dgemm(void* backend_data, void* queue_wrap_p){
     warning("cublas_wrap_dgemm: Changing device %d -> %d\n", cur_dev_id, ptr_ker_translate->dev_id);
 #endif
   CoCoPeLiaSelectDevice(ptr_ker_translate->dev_id);
+  
 #ifdef DEBUG
   fprintf(stderr,"cublas_wrap_dgemm: cublasDgemm(dev_id = %d, TransA = %c, TransB = %c,\
     M = %d, N = %d, K = %d, alpha = %lf, A = %p, lda = %d, \n\
@@ -211,12 +207,11 @@ void cublas_wrap_dgemm(void* backend_data, void* queue_wrap_p){
     (double*) *ptr_ker_translate->B, ptr_ker_translate->ldB,
     ptr_ker_translate->beta, (double*) *ptr_ker_translate->C, ptr_ker_translate->ldC);
 #endif
-#ifdef ENABLE_PARALLEL_BACKEND
+  //cuCtxSetCurrent(*((CUcontext*)((CQueue_p)queue_wrap_p)->cqueue_backend_ctx
+  //  [((CQueue_p)queue_wrap_p)->backend_ctr]));
   cublasHandle_t temp_handle = *((cublasHandle_t*)((CQueue_p)queue_wrap_p)->cqueue_backend_data
     [((CQueue_p)queue_wrap_p)->backend_ctr]);
-#else
-  cublasHandle_t temp_handle = *((cublasHandle_t*)((CQueue_p)queue_wrap_p)->cqueue_backend_data);
-#endif
+
   massert(CUBLAS_STATUS_SUCCESS == cublasDgemm(temp_handle,
     OpCharToCublas(ptr_ker_translate->TransA), OpCharToCublas(ptr_ker_translate->TransB),
     ptr_ker_translate->M, ptr_ker_translate->N, ptr_ker_translate->K, &ptr_ker_translate->alpha,
@@ -244,12 +239,10 @@ void cublas_wrap_sgemm(void* backend_data, void* queue_wrap_p){
     (float*) *ptr_ker_translate->B, ptr_ker_translate->ldB,
     ptr_ker_translate->beta, (float*) *ptr_ker_translate->C, ptr_ker_translate->ldC);
 #endif
-#ifdef ENABLE_PARALLEL_BACKEND
+
   cublasHandle_t temp_handle = *((cublasHandle_t*)((CQueue_p)queue_wrap_p)->cqueue_backend_data
     [((CQueue_p)queue_wrap_p)->backend_ctr]);
-#else
-  cublasHandle_t temp_handle = *((cublasHandle_t*)((CQueue_p)queue_wrap_p)->cqueue_backend_data);
-#endif
+
   massert(CUBLAS_STATUS_SUCCESS == cublasSgemm(temp_handle,
     OpCharToCublas(ptr_ker_translate->TransA), OpCharToCublas(ptr_ker_translate->TransB),
     ptr_ker_translate->M, ptr_ker_translate->N, ptr_ker_translate->K, &ptr_ker_translate->alpha,
@@ -276,12 +269,10 @@ void cublas_wrap_dgemv(void* backend_data, void* queue_wrap_p){
     (double*) *ptr_ker_translate->x, ptr_ker_translate->incx,
     ptr_ker_translate->beta, (double*) *ptr_ker_translate->y, ptr_ker_translate->incy);
 #endif
-#ifdef ENABLE_PARALLEL_BACKEND
+
   cublasHandle_t temp_handle = *((cublasHandle_t*)((CQueue_p)queue_wrap_p)->cqueue_backend_data
     [((CQueue_p)queue_wrap_p)->backend_ctr]);
-#else
-  cublasHandle_t temp_handle = *((cublasHandle_t*)((CQueue_p)queue_wrap_p)->cqueue_backend_data);
-#endif
+
   massert(CUBLAS_STATUS_SUCCESS == cublasDgemv(temp_handle, OpCharToCublas(ptr_ker_translate->TransA),
     ptr_ker_translate->M, ptr_ker_translate->N, &ptr_ker_translate->alpha,
     (double*) *ptr_ker_translate->A, ptr_ker_translate->ldA,

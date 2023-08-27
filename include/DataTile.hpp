@@ -40,6 +40,7 @@ public:
     // - other target loc(s) = 1
     int loc_map[LOC_NUM]; 
     CBlock_p StoreBlock[LOC_NUM];
+    double block_ETA[LOC_NUM] = {-42}; 
 
     // General Functions
     int get_dtype_size();

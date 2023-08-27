@@ -100,12 +100,15 @@ void DataTile::fetch(int priority_loc_id)
           block_ptr[inter_hop]->set_owner((void**)&StoreBlock[idxize(best_route->hop_uid_list[inter_hop])],false);
         }
         else block_ptr[inter_hop] = Global_Buffer_2D[idxize(best_route->hop_uid_list[inter_hop])]->assign_Cblock(EXCLUSIVE,false);
+
     }
     else block_ptr[inter_hop] = StoreBlock[idxize(priority_loc_id)];
 
     best_route->hop_buf_list[inter_hop] = block_ptr[inter_hop]->Adrs;
     best_route->hop_event_list[inter_hop-1] = block_ptr[inter_hop]->Available;
-    best_route->hop_cqueue_list[inter_hop-1] = recv_queues[idxize(best_route->hop_uid_list[inter_hop])][idxize(best_route->hop_uid_list[inter_hop-1])];
+    best_route->hop_cqueue_list[inter_hop-1] = 
+      recv_queues[idxize(best_route->hop_uid_list[inter_hop])]
+      [idxize(best_route->hop_uid_list[inter_hop-1])];
 
   }
   best_route->hop_cqueue_list[0]->wait_for_event(block_ptr[0]->Available); // TODO: is this needed for all optimization methods?
@@ -181,12 +184,18 @@ void DataTile::writeback(){
     for(int inter_hop = 1 ; inter_hop < best_route->hop_num; inter_hop++){
       best_route->hop_ldim_list[inter_hop] = get_chunk_size(idxize(best_route->hop_uid_list[inter_hop]));  // TODO: This might be wrong for Tile1D + inc!=1
 
-      if(inter_hop < best_route->hop_num - 1) block_ptr[inter_hop] = Global_Buffer_2D[idxize(best_route->hop_uid_list[inter_hop])]->assign_Cblock(EXCLUSIVE,false);
-      else block_ptr[inter_hop] = StoreBlock[Writeback_id_idx];
+      if(inter_hop < best_route->hop_num - 1){
+        block_ptr[inter_hop] = Global_Buffer_2D[idxize(best_route->hop_uid_list[inter_hop])]->
+          assign_Cblock(EXCLUSIVE,false);
+          best_route->hop_event_list[inter_hop-1] = block_ptr[inter_hop]->Available;
+      }
+      else{
+        block_ptr[inter_hop] = StoreBlock[Writeback_id_idx];
+        best_route->hop_event_list[inter_hop-1] = NULL;
+      }
   
       best_route->hop_buf_list[inter_hop] = block_ptr[inter_hop]->Adrs;
 
-      best_route->hop_event_list[inter_hop-1] = block_ptr[inter_hop]->Available;
       best_route->hop_cqueue_list[inter_hop-1] = wb_queues[idxize(best_route->hop_uid_list[inter_hop])][idxize(best_route->hop_uid_list[inter_hop-1])];
 
     }

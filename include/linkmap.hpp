@@ -27,18 +27,15 @@ typedef class CommandQueue
 {
 	private:
 	public:
-#ifdef ENABLE_PARALLEL_BACKEND
 		void* cqueue_backend_ptr[MAX_BACKEND_L];
 		void* cqueue_backend_data[MAX_BACKEND_L];
+		//void* cqueue_backend_ctx[MAX_BACKEND_L];
 		int backend_ctr = 0;
 		int simultaneous_workers = 1; 
-#else
-		void* cqueue_backend_ptr;
-		void* cqueue_backend_data;
-#endif
+
 		int dev_id;
 
-		//Constructor - Mode ignored if ENABLE_PARALLEL_BACKEND is not defined
+		//Constructor
 		CommandQueue(int dev_id, int mode);
 
 		//Destructor
@@ -46,21 +43,19 @@ typedef class CommandQueue
 		void sync_barrier();
 		void add_host_func(void* func, void* data);
 		void wait_for_event(Event_p Wevent);
-#ifdef ENABLE_PARALLEL_BACKEND
 		int request_parallel_backend();
 		void set_parallel_backend(int backend_ctr);
-#endif
+
 		std::string name;
 		void print() { std::cout << "Command Queue : " << name; }
 
 		/*****************************************************/
 		/// PARALia 2.0 - simple timed queues (without slowdowns)
 		// An estimation of when the queue will be free of tasks.
-		double ETA_clocktime = -1; 
-		void ETA_add_task(double task_fire_clocktime, double task_durasion);
-		double ETA_check_task(double task_fire_clocktime, double task_durasion);
-		void ETA_set(double new_ETA);
-		double ETA_get();
+		double workload_t = 0; 
+		void WT_add_task(double task_duration);
+		void WT_set(double new_workload_t);
+		double WT_get();
 
 }* CQueue_p;
 

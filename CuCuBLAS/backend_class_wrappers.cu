@@ -10,6 +10,7 @@
 #include <curand.h>
 
 #include "backend_wrappers.hpp"
+#include "DataCaching.hpp"
 
 int lvl = 1;
 
@@ -54,76 +55,80 @@ const char* print_event_status(event_status in_status){
 /*****************************************************/
 /// Command queue class functions
 
-#ifdef ENABLE_PARALLEL_BACKEND
 CommandQueue::CommandQueue(int dev_id_in, int mode)
-#else
-CommandQueue::CommandQueue(int dev_id_in)
-#endif
 {
 	int prev_dev_id = CoCoPeLiaGetDevice();
 	dev_id = dev_id_in;
 	CoCoPeLiaSelectDevice(dev_id);
 #ifdef UDDEBUG
-	lprintf(lvl, "[dev_id=%3d] |-----> CommandQueue::CommandQueue()\n", dev_id_in);
+	fprintf(stderr, "[dev_id=%3d] |-----> CommandQueue::CommandQueue()\n", dev_id_in);
 #endif
 	if(prev_dev_id != dev_id){;
 #ifdef UDEBUG
-		lprintf(lvl, "[dev_id=%3d] ------- CommandQueue::CommandQueue(): Called for other dev_id = %d\n",
+		fprintf(stderr, "[dev_id=%3d] ------- CommandQueue::CommandQueue(): Called for other dev_id = %d\n",
 			dev_id, prev_dev_id);
 #endif
 	}
-#ifdef ENABLE_PARALLEL_BACKEND
 	simultaneous_workers = MAX_BACKEND_L;
+	workload_t = 0; 
+	backend_ctr = 0;
 	if(!mode) simultaneous_workers = 1; 
+
 #ifdef UDEBUG
-	lprintf(lvl, "[dev_id=%3d] ------- CommandQueue::CommandQueue(): Initializing parallel queue with %d Backend workers\n",
+	fprintf(stderr, "[dev_id=%3d] ------- CommandQueue::CommandQueue(): Initializing parallel queue with %d Backend workers\n",
 		dev_id, simultaneous_workers);
 #endif
-	backend_ctr = 0;
-	for (int par_idx = 0; par_idx < simultaneous_workers; par_idx++ ){
-		cqueue_backend_ptr[par_idx] = malloc(sizeof(cudaStream_t));
-		cudaError_t err = cudaStreamCreate((cudaStream_t*) cqueue_backend_ptr[par_idx]);
-		massert(cudaSuccess == err, "CommandQueue::CommandQueue(%d) - %s\n", dev_id, cudaGetErrorString(err));
-		cudaStream_t stream = *((cudaStream_t*) cqueue_backend_ptr[par_idx]);
+	if(!mode || -1 == dev_id){
+			//cqueue_backend_ctx[0] = malloc(sizeof(CUcontext));
+			//cuCtxGetCurrent ((CUcontext*)cqueue_backend_ctx[0]);
+			//long long unsigned CID;  
+			//cuCtxGetId(*(CUcontext*)cqueue_backend_ctx[0], &CID);
+			//fprintf(stderr, "[dev_id=%3d] CommandQueue::CommandQueue: mode-0 CID = %llu\n", dev_id, CID);
 
-		cqueue_backend_data[par_idx] = malloc(sizeof(cublasHandle_t));
-		massert(CUBLAS_STATUS_SUCCESS == cublasCreate((cublasHandle_t*) cqueue_backend_data[par_idx]),
-			"CommandQueue::CommandQueue(%d): cublasCreate failed\n", dev_id);
-		massert(CUBLAS_STATUS_SUCCESS == cublasSetStream(*((cublasHandle_t*) cqueue_backend_data[par_idx]), stream),
-			"CommandQueue::CommandQueue(%d): cublasSetStream failed\n", dev_id);
-		//warning("FIXME: Running on limited SMs, custom stuff, beware this in not a drill\n");
-		//massert(CUBLAS_STATUS_SUCCESS == cublasSetSmCountTarget(*((cublasHandle_t*) cqueue_backend_data[par_idx]), 1),
-		//	"CommandQueue::CommandQueue(%d): cublasSetSmCountTarget failed\n", dev_id);
+			cqueue_backend_ptr[0] = malloc(sizeof(cudaStream_t));
+			cudaError_t err = cudaStreamCreate((cudaStream_t*) cqueue_backend_ptr[0]);
+			massert(cudaSuccess == err, "CommandQueue::CommandQueue(%d) - %s\n", dev_id, cudaGetErrorString(err));
 	}
-#else
-#ifdef UDEBUG
-		lprintf(lvl, "[dev_id=%3d] ------- CommandQueue::CommandQueue(%d): Initializing simple queue\n", dev_id);
-#endif
-	cqueue_backend_ptr = malloc(sizeof(cudaStream_t));
-	cudaError_t err = cudaStreamCreate((cudaStream_t*) cqueue_backend_ptr);
-	massert(cudaSuccess == err, "CommandQueue::CommandQueue(%d) - %s\n", dev_id, cudaGetErrorString(err));
-	cudaStream_t stream = *((cudaStream_t*) cqueue_backend_ptr);
-
-	cqueue_backend_data = malloc(sizeof(cublasHandle_t));
-	massert(CUBLAS_STATUS_SUCCESS == cublasCreate((cublasHandle_t*) cqueue_backend_data),
-		"CommandQueue::CommandQueue(%d): cublasCreate failed\n", dev_id);
-	massert(CUBLAS_STATUS_SUCCESS == cublasSetStream(*((cublasHandle_t*) cqueue_backend_data), stream),
-		"CommandQueue::CommandQueue(%d): cublasSetStream failed\n", dev_id);
-#endif
+	else{
+		for (int par_idx = 0; par_idx < simultaneous_workers; par_idx++ ){
+			//cqueue_backend_ctx[par_idx] = malloc(sizeof(CUcontext));
+			//if(par_idx>0) cuCtxCreate((CUcontext*)cqueue_backend_ctx[par_idx], 0, dev_id);
+			//cuCtxGetCurrent ((CUcontext*)cqueue_backend_ctx[par_idx]);
+			//long long unsigned CID;  
+			//cuCtxGetId(*(CUcontext*)cqueue_backend_ctx[par_idx], &CID);
+			//fprintf(stderr, "[dev_id=%3d] CommandQueue::CommandQueue: mode-1 CID = %llu for backend %d\n", dev_id, CID, par_idx);
+	
+			cqueue_backend_ptr[par_idx] = malloc(sizeof(cudaStream_t));
+			cudaError_t err = cudaStreamCreate((cudaStream_t*) cqueue_backend_ptr[par_idx]);
+			massert(cudaSuccess == err, "CommandQueue::CommandQueue(%d) - %s\n", dev_id, cudaGetErrorString(err));
+			cudaStream_t stream = *((cudaStream_t*) cqueue_backend_ptr[par_idx]);
+			cqueue_backend_data[par_idx] = malloc(sizeof(cublasHandle_t));
+			massert(CUBLAS_STATUS_SUCCESS == cublasCreate((cublasHandle_t*) cqueue_backend_data[par_idx]),
+				"CommandQueue::CommandQueue(%d): cublasCreate failed\n", dev_id);
+			massert(CUBLAS_STATUS_SUCCESS == cublasSetStream(*((cublasHandle_t*) cqueue_backend_data[par_idx]), stream),
+				"CommandQueue::CommandQueue(%d): cublasSetStream failed\n", dev_id);
+			//void* local_ws = CoCoMalloc(2048, dev_id); 
+			//massert(CUBLAS_STATUS_SUCCESS == cublasSetWorkspace(*((cublasHandle_t*) 
+			//	cqueue_backend_data[par_idx]), local_ws, 2048), 
+			//	"CommandQueue::CommandQueue(%d): cublasSetWorkspace failed\n", dev_id);
+			//warning("FIXME: Running on limited SMs, custom stuff, beware this in not a drill\n");
+			//massert(CUBLAS_STATUS_SUCCESS == cublasSetSmCountTarget(*((cublasHandle_t*) cqueue_backend_data[par_idx]), 1),
+			//	"CommandQueue::CommandQueue(%d): cublasSetSmCountTarget failed\n", dev_id);
+		}
+	}
 	CoCoPeLiaSelectDevice(prev_dev_id);
 #ifdef UDDEBUG
-	lprintf(lvl, "[dev_id=%3d] <-----| CommandQueue::CommandQueue()\n", dev_id);
+	fprintf(stderr, "[dev_id=%3d] <-----| CommandQueue::CommandQueue()\n", dev_id);
 #endif
 }
 
 CommandQueue::~CommandQueue()
 {
 	#ifdef UDDEBUG
-		lprintf(lvl, "[dev_id=%3d] |-----> CommandQueue::~CommandQueue()\n", dev_id);
+		fprintf(stderr, "[dev_id=%3d] |-----> CommandQueue::~CommandQueue()\n", dev_id);
 	#endif
 		sync_barrier();
 		CoCoPeLiaSelectDevice(dev_id);
-#ifdef ENABLE_PARALLEL_BACKEND
 	for (int par_idx = 0; par_idx < simultaneous_workers; par_idx++ ){
 		cudaStream_t stream = *((cudaStream_t*) cqueue_backend_ptr[par_idx]);
 		cudaError_t err = cudaStreamSynchronize(stream);
@@ -135,19 +140,8 @@ CommandQueue::~CommandQueue()
 		massert(CUBLAS_STATUS_SUCCESS == cublasDestroy(handle),
 			"CommandQueue::CommandQueue - cublasDestroy(handle) failed\n");
 	}
-#else
-	cudaStream_t stream = *((cudaStream_t*) cqueue_backend_ptr);
-	cudaError_t err = cudaStreamSynchronize(stream);
-	massert(cudaSuccess == err, "CommandQueue::CommandQueue - cudaStreamSynchronize: %s\n", cudaGetErrorString(err));
-	err = cudaStreamDestroy(stream);
-	massert(cudaSuccess == err, "CommandQueue::CommandQueue - cudaStreamDestroy: %s\n", cudaGetErrorString(err));
-	free(cqueue_backend_ptr);
-	cublasHandle_t handle = *((cublasHandle_t*) cqueue_backend_data);
-	massert(CUBLAS_STATUS_SUCCESS == cublasDestroy(handle),
-		"CommandQueue::CommandQueue - cublasDestroy(handle) failed\n");
-#endif
 #ifdef UDDEBUG
-	lprintf(lvl, "[dev_id=%3d] <-----| CommandQueue::~CommandQueue()\n", dev_id);
+	fprintf(stderr, "[dev_id=%3d] <-----| CommandQueue::~CommandQueue()\n", dev_id);
 #endif
 	return;
 }
@@ -155,48 +149,38 @@ CommandQueue::~CommandQueue()
 void CommandQueue::sync_barrier()
 {
 #ifdef UDDEBUG
-	lprintf(lvl, "[dev_id=%3d] |-----> CommandQueue::sync_barrier()\n", dev_id);
+	fprintf(stderr, "[dev_id=%3d] |-----> CommandQueue::sync_barrier()\n", dev_id);
 #endif
-#ifdef ENABLE_PARALLEL_BACKEND
 	for (int par_idx = 0; par_idx < simultaneous_workers; par_idx++ ){
 		cudaStream_t stream = *((cudaStream_t*) cqueue_backend_ptr[par_idx]);
 		cudaError_t err = cudaStreamSynchronize(stream);
 		massert(cudaSuccess == err, "CommandQueue::sync_barrier - %s\n", cudaGetErrorString(err));
 	}
-#else
-	cudaStream_t stream = *((cudaStream_t*) cqueue_backend_ptr);
-	cudaError_t err = cudaStreamSynchronize(stream);
-	massert(cudaSuccess == err, "CommandQueue::sync_barrier - %s\n", cudaGetErrorString(err));
-#endif
+
 #ifdef UDDEBUG
-	lprintf(lvl, "[dev_id=%3d] <-----| CommandQueue::sync_barrier()\n", dev_id);
+	fprintf(stderr, "[dev_id=%3d] <-----| CommandQueue::sync_barrier()\n", dev_id);
 #endif
 }
 
 void CommandQueue::add_host_func(void* func, void* data){
 	get_lock();
 #ifdef UDDEBUG
-	lprintf(lvl, "[dev_id=%3d] |-----> CommandQueue::add_host_func()\n", dev_id);
+	fprintf(stderr, "[dev_id=%3d] |-----> CommandQueue::add_host_func()\n", dev_id);
 #endif
-#ifdef ENABLE_PARALLEL_BACKEND
 	cudaStream_t stream = *((cudaStream_t*) cqueue_backend_ptr[backend_ctr]);
 	cudaError_t err = cudaLaunchHostFunc(stream, (cudaHostFn_t) func, data);
 	massert(cudaSuccess == err, "CommandQueue::add_host_func - %s\n", cudaGetErrorString(err));
-#else
-	cudaStream_t stream = *((cudaStream_t*) cqueue_backend_ptr);
-	cudaError_t err = cudaLaunchHostFunc(stream, (cudaHostFn_t) func, data);
-	massert(cudaSuccess == err, "CommandQueue::add_host_func - %s\n", cudaGetErrorString(err));
-#endif
+
 	release_lock();
 #ifdef UDDEBUG
-	lprintf(lvl, "[dev_id=%3d] <-----| CommandQueue::add_host_func()\n", dev_id);
+	fprintf(stderr, "[dev_id=%3d] <-----| CommandQueue::add_host_func()\n", dev_id);
 #endif
 }
 
 void CommandQueue::wait_for_event(Event_p Wevent)
 {
 #ifdef UDDEBUG
-	lprintf(lvl, "[dev_id=%3d] |-----> CommandQueue::wait_for_event(Event(%d))\n", dev_id, Wevent->id);
+	fprintf(stderr, "[dev_id=%3d] |-----> CommandQueue::wait_for_event(Event(%d))\n", dev_id, Wevent->id);
 #endif
 	if (Wevent->query_status() == CHECKED);
 	else{
@@ -208,27 +192,23 @@ void CommandQueue::wait_for_event(Event_p Wevent)
 			return;
 		}
 		get_lock();
-#ifdef ENABLE_PARALLEL_BACKEND
+
 		cudaStream_t stream = *((cudaStream_t*) cqueue_backend_ptr[backend_ctr]);
-#else
-		cudaStream_t stream = *((cudaStream_t*) cqueue_backend_ptr);
-#endif
 		cudaEvent_t cuda_event= *(cudaEvent_t*) Wevent->event_backend_ptr;
 		release_lock();
 		cudaError_t err = cudaStreamWaitEvent(stream, cuda_event, 0); // 0-only parameter = future NVIDIA masterplan?
 		massert(cudaSuccess == err, "CommandQueue::wait_for_event - %s\n", cudaGetErrorString(err));
 	}
 #ifdef UDDEBUG
-	lprintf(lvl, "[dev_id=%3d] <-----| CommandQueue::wait_for_event(Event(%d))\n", dev_id, Wevent->id);
+	fprintf(stderr, "[dev_id=%3d] <-----| CommandQueue::wait_for_event(Event(%d))\n", dev_id, Wevent->id);
 #endif
 	return;
 }
 
-#ifdef ENABLE_PARALLEL_BACKEND
 int CommandQueue::request_parallel_backend()
 {
 #ifdef UDDEBUG
-	lprintf(lvl, "[dev_id=%3d] |-----> CommandQueue::request_parallel_backend()\n", dev_id);
+	fprintf(stderr, "[dev_id=%3d] |-----> CommandQueue::request_parallel_backend()\n", dev_id);
 #endif
 	get_lock();
 	if (backend_ctr == simultaneous_workers - 1) backend_ctr = 0;
@@ -236,7 +216,7 @@ int CommandQueue::request_parallel_backend()
 	int tmp_backend_ctr = backend_ctr;
 	release_lock();
 #ifdef UDDEBUG
-	lprintf(lvl, "[dev_id=%3d] <-----| CommandQueue::request_parallel_backend() = %d\n", dev_id, tmp_backend_ctr);
+	fprintf(stderr, "[dev_id=%3d] <-----| CommandQueue::request_parallel_backend() = %d\n", dev_id, tmp_backend_ctr);
 #endif
 	return tmp_backend_ctr;
 }
@@ -244,38 +224,30 @@ int CommandQueue::request_parallel_backend()
 void CommandQueue::set_parallel_backend(int backend_ctr_in)
 {
 #ifdef UDDEBUG
-	lprintf(lvl, "[dev_id=%3d] |-----> CommandQueue::set_parallel_backend(%d)\n", dev_id, backend_ctr_in);
+	fprintf(stderr, "[dev_id=%3d] |-----> CommandQueue::set_parallel_backend(%d)\n", dev_id, backend_ctr_in);
 #endif
 	get_lock();
 	backend_ctr = backend_ctr_in;
 	release_lock();
 #ifdef UDDEBUG
-	lprintf(lvl, "[dev_id=%3d] <-----| CommandQueue::set_parallel_backend(%d)\n", dev_id, backend_ctr);
+	fprintf(stderr, "[dev_id=%3d] <-----| CommandQueue::set_parallel_backend(%d)\n", dev_id, backend_ctr);
 #endif
 	return;
 }
 
-#endif
-
 /*****************************************************/
 /// PARALia 2.0 - timed queues
 
-void CommandQueue::ETA_add_task(double task_fire_clocktime, double task_durasion){
-	if(ETA_clocktime < task_fire_clocktime) ETA_clocktime = task_fire_clocktime + task_durasion;
-	else ETA_clocktime+= task_durasion;
+void CommandQueue::WT_add_task(double task_duration){
+	workload_t+= task_duration;
 }
 
-double CommandQueue::ETA_check_task(double task_fire_clocktime, double task_durasion){
-	if(ETA_clocktime < task_fire_clocktime) return task_fire_clocktime + task_durasion;
-	else return ETA_clocktime + task_durasion;
+void CommandQueue::WT_set(double new_workload_t){
+	workload_t = new_workload_t; 
 }
 
-void CommandQueue::ETA_set(double new_ETA){
-	ETA_clocktime = new_ETA; 
-}
-
-double CommandQueue::ETA_get(){
-	return ETA_clocktime;
+double CommandQueue::WT_get(){
+	return workload_t;
 }
 
 /*****************************************************/
@@ -283,7 +255,7 @@ double CommandQueue::ETA_get(){
 Event::Event(int dev_id_in)
 {
 #ifdef UDDEBUG
-	lprintf(lvl, "[dev_id=%3d] |-----> Event(%d)::Event()\n", dev_id_in, Event_num_device[idxize(dev_id_in)]);
+	fprintf(stderr, "[dev_id=%3d] |-----> Event(%d)::Event()\n", dev_id_in, Event_num_device[idxize(dev_id_in)]);
 #endif
 	get_lock();
 	event_backend_ptr = malloc(sizeof(cudaEvent_t));
@@ -299,14 +271,14 @@ Event::Event(int dev_id_in)
 	status = UNRECORDED;
 	release_lock();
 #ifdef UDDEBUG
-	lprintf(lvl, "[dev_id=%3d] <-----| Event(%d)::Event()\n", dev_id, id);
+	fprintf(stderr, "[dev_id=%3d] <-----| Event(%d)::Event()\n", dev_id, id);
 #endif
 }
 
 Event::~Event()
 {
 #ifdef UDDEBUG
-	lprintf(lvl, "[dev_id=%3d] |-----> Event(%d)::~Event()\n", dev_id, id);
+	fprintf(stderr, "[dev_id=%3d] |-----> Event(%d)::~Event()\n", dev_id, id);
 #endif
 	sync_barrier();
 	get_lock();
@@ -325,14 +297,14 @@ Event::~Event()
 	free(event_backend_ptr);
 	release_lock();
 #ifdef UDDEBUG
-	lprintf(lvl, "[dev_id=%3d] <-----| Event(%d)::~Event()\n", dev_id, id);
+	fprintf(stderr, "[dev_id=%3d] <-----| Event(%d)::~Event()\n", dev_id, id);
 #endif
 }
 
 void Event::sync_barrier()
 {
 #ifdef UDDEBUG
-	lprintf(lvl, "[dev_id=%3d] |-----> Event(%d)::sync_barrier()\n", dev_id, id);
+	fprintf(stderr, "[dev_id=%3d] |-----> Event(%d)::sync_barrier()\n", dev_id, id);
 #endif
 	//get_lock();
 	if (status != CHECKED){
@@ -350,7 +322,7 @@ void Event::sync_barrier()
 	}
 	//release_lock();
 #ifdef UDDEBUG
-	lprintf(lvl, "[dev_id=%3d] <-----| Event(%d)::sync_barrier()\n", dev_id, id);
+	fprintf(stderr, "[dev_id=%3d] <-----| Event(%d)::sync_barrier()\n", dev_id, id);
 #endif
 	return;
 }
@@ -359,17 +331,17 @@ void Event::record_to_queue(CQueue_p Rr){
 	get_lock();
 	if (Rr == NULL){
 #ifdef UDDEBUG
-	lprintf(lvl, "[dev_id=%3d] <-----> Event(%d)::record_to_queue(NULL)\n", dev_id, id);
+	fprintf(stderr, "[dev_id=%3d] <-----> Event(%d)::record_to_queue(NULL)\n", dev_id, id);
 #endif
 		status = CHECKED;
 		release_lock();
 		return;
 	}
 #ifdef UDDEBUG
-	lprintf(lvl, "[dev_id=%3d] |-----> Event(%d)::record_to_queue(Queue(dev_id=%d))\n", dev_id, id, Rr->dev_id);
+	fprintf(stderr, "[dev_id=%3d] |-----> Event(%d)::record_to_queue(Queue(dev_id=%d))\n", dev_id, id, Rr->dev_id);
+
 #endif
-	int prev_dev_id;
-	cudaGetDevice(&prev_dev_id);
+	int prev_dev_id = CoCoPeLiaGetDevice();
 	if (Rr->dev_id != prev_dev_id){
 		CoCoPeLiaSelectDevice(Rr->dev_id);
 #ifdef UDEBUG
@@ -401,27 +373,22 @@ void Event::record_to_queue(CQueue_p Rr){
 	}
 #endif
 	cudaEvent_t cuda_event= *(cudaEvent_t*) event_backend_ptr;
-#ifdef ENABLE_PARALLEL_BACKEND
 	cudaStream_t stream = *((cudaStream_t*) Rr->cqueue_backend_ptr[Rr->backend_ctr]);
 	cudaError_t err = cudaEventRecord(cuda_event, stream);
-#else
-	cudaStream_t stream = *((cudaStream_t*) Rr->cqueue_backend_ptr);
-	cudaError_t err = cudaEventRecord(cuda_event, stream);
-#endif
 	status = RECORDED;
 	massert(cudaSuccess == err, "Event(%d,dev_id = %d)::record_to_queue(%d) - %s\n",  id, dev_id, Rr->dev_id, cudaGetErrorString(err));
 	if (Rr->dev_id != prev_dev_id){
-		cudaSetDevice(prev_dev_id);
+		CoCoPeLiaSelectDevice(prev_dev_id);
 	}
 	release_lock();
 #ifdef UDDEBUG
-	lprintf(lvl, "[dev_id=%3d] <-----| Event(%d)::record_to_queue(Queue(dev_id=%d))\n", dev_id, id, Rr->dev_id);
+	fprintf(stderr, "[dev_id=%3d] <-----| Event(%d)::record_to_queue(Queue(dev_id=%d))\n", dev_id, id, Rr->dev_id);
 #endif
 }
 
 event_status Event::query_status(){
 #ifdef UDDEBUG
-	lprintf(lvl, "[dev_id=%3d] |-----> Event(%d)::query_status()\n", dev_id, id);
+	fprintf(stderr, "[dev_id=%3d] |-----> Event(%d)::query_status()\n", dev_id, id);
 #endif
 	get_lock();
 	enum event_status local_status = status;
@@ -458,27 +425,27 @@ event_status Event::query_status(){
 	}
 	release_lock();
 #ifdef UDDEBUG
-	lprintf(lvl, "[dev_id=%3d] <-----| Event(%d)::query_status() = %s\n", dev_id, id, print_event_status(status));
+	fprintf(stderr, "[dev_id=%3d] <-----| Event(%d)::query_status() = %s\n", dev_id, id, print_event_status(status));
 #endif
 	return local_status;
 }
 
 void Event::checked(){
 #ifdef UDDEBUG
-	lprintf(lvl, "[dev_id=%3d] |-----> Event(%d)::checked()\n", dev_id, id);
+	fprintf(stderr, "[dev_id=%3d] |-----> Event(%d)::checked()\n", dev_id, id);
 #endif
 	get_lock();
 	if (status == COMPLETE) status = CHECKED;
 	else error("Event::checked(): error event was %s,  not COMPLETE()\n", print_event_status(status));
 	release_lock();
 #ifdef UDDEBUG
-	lprintf(lvl, "[dev_id=%3d] <-----| Event(%d)::checked()\n", dev_id, id);
+	fprintf(stderr, "[dev_id=%3d] <-----| Event(%d)::checked()\n", dev_id, id);
 #endif
 }
 
 void Event::soft_reset(){
 #ifdef UDDEBUG
-	lprintf(lvl, "[dev_id=%3d] |-----> Event(%d)::soft_reset()\n", dev_id, id);
+	fprintf(stderr, "[dev_id=%3d] |-----> Event(%d)::soft_reset()\n", dev_id, id);
 #endif
 	// sync_barrier();
 	get_lock();
@@ -492,13 +459,13 @@ void Event::soft_reset(){
 #endif
 	release_lock();
 #ifdef UDDEBUG
-	lprintf(lvl, "[dev_id=%3d] <-----| Event(%d)::soft_reset()\n", dev_id, id);
+	fprintf(stderr, "[dev_id=%3d] <-----| Event(%d)::soft_reset()\n", dev_id, id);
 #endif
 }
 
 void Event::reset(){
 #ifdef UDDEBUG
-	lprintf(lvl, "[dev_id=%3d] |-----> Event(%d)::reset()\n", dev_id, id);
+	fprintf(stderr, "[dev_id=%3d] Event(%d)::reset()\n", dev_id, id);
 #endif
 	sync_barrier();
 	get_lock();
@@ -513,7 +480,7 @@ void Event::reset(){
 #endif
 	release_lock();
 #ifdef UDDEBUG
-	lprintf(lvl, "[dev_id=%3d] <-----| Event(%d)::reset()\n", dev_id, id);
+	fprintf(stderr, "[dev_id=%3d] <-----| Event(%d)::reset()\n", dev_id, id);
 #endif
 }
 

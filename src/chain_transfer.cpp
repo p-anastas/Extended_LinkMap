@@ -60,9 +60,11 @@ void FasTCoCoMemcpy2DAsync(LinkRoute_p roadMap, long int rows, long int cols, sh
 #endif
 		CoCoMemcpy2DAsync_noTTs(roadMap->hop_buf_list[roadMap->starting_hop+1], roadMap->hop_ldim_list[roadMap->starting_hop+1],
 										roadMap->hop_buf_list[roadMap->starting_hop], roadMap->hop_ldim_list[roadMap->starting_hop],
-										rows, cols, elemSize,
-										roadMap->hop_uid_list[roadMap->starting_hop+1], roadMap->hop_uid_list[roadMap->starting_hop], roadMap->hop_cqueue_list[roadMap->starting_hop]);
-		roadMap->hop_event_list[roadMap->starting_hop]->record_to_queue(roadMap->hop_cqueue_list[roadMap->starting_hop]);
+										rows, cols, elemSize, 
+										roadMap->hop_uid_list[roadMap->starting_hop+1], 
+										roadMap->hop_uid_list[roadMap->starting_hop], 
+										roadMap->hop_cqueue_list[roadMap->starting_hop]);
+		if(roadMap->hop_event_list[roadMap->starting_hop]) roadMap->hop_event_list[roadMap->starting_hop]->record_to_queue(roadMap->hop_cqueue_list[roadMap->starting_hop]);
 #ifdef TTEST
 		roadMap->hop_cqueue_list[roadMap->starting_hop]->add_host_func((void*)&CoCoSetTimerAsync, 
 			(void*) &(inter_hop_timers[fast_trans_ctr][0][2]));
@@ -108,7 +110,7 @@ void FasTCoCoMemcpy2DAsync(LinkRoute_p roadMap, long int rows, long int cols, sh
 											roadMap->hop_uid_list[uid_ctr + 1], roadMap->hop_uid_list[uid_ctr], roadMap->hop_cqueue_list[uid_ctr]);
 				if(uid_ctr < roadMap->hop_num - 1) step_events[uid_ctr][steps]->record_to_queue(roadMap->hop_cqueue_list[uid_ctr]);
 			}
-			roadMap->hop_event_list[uid_ctr]->record_to_queue(roadMap->hop_cqueue_list[uid_ctr]);
+			if(roadMap->hop_event_list[uid_ctr]) roadMap->hop_event_list[uid_ctr]->record_to_queue(roadMap->hop_cqueue_list[uid_ctr]);
 #ifdef TTEST
 		roadMap->hop_cqueue_list[uid_ctr]->add_host_func((void*)&CoCoSetTimerAsync, 
 			(void*) &(inter_hop_timers[fast_trans_ctr][uid_ctr - roadMap->starting_hop][2]));
