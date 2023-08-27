@@ -69,48 +69,42 @@ CommandQueue::CommandQueue(int dev_id_in, int mode)
 			dev_id, prev_dev_id);
 #endif
 	}
-	simultaneous_workers = MAX_BACKEND_L;
+	//simultaneous_workers = MAX_BACKEND_L; // Bye bye parallel backends, i am older now (use seperate queues)
 	workload_t = 0; 
 	backend_ctr = 0;
-	if(!mode) simultaneous_workers = 1; 
-
+	//if(!mode) 
+	simultaneous_workers = 1; 
 #ifdef UDEBUG
 	fprintf(stderr, "[dev_id=%3d] ------- CommandQueue::CommandQueue(): Initializing parallel queue with %d Backend workers\n",
 		dev_id, simultaneous_workers);
 #endif
-	if(!mode || -1 == dev_id){
-			//cqueue_backend_ctx[0] = malloc(sizeof(CUcontext));
-			//cuCtxGetCurrent ((CUcontext*)cqueue_backend_ctx[0]);
-			//long long unsigned CID;  
-			//cuCtxGetId(*(CUcontext*)cqueue_backend_ctx[0], &CID);
-			//fprintf(stderr, "[dev_id=%3d] CommandQueue::CommandQueue: mode-0 CID = %llu\n", dev_id, CID);
-
-			cqueue_backend_ptr[0] = malloc(sizeof(cudaStream_t));
-			cudaError_t err = cudaStreamCreate((cudaStream_t*) cqueue_backend_ptr[0]);
-			massert(cudaSuccess == err, "CommandQueue::CommandQueue(%d) - %s\n", dev_id, cudaGetErrorString(err));
-	}
-	else{
-		for (int par_idx = 0; par_idx < simultaneous_workers; par_idx++ ){
-			//cqueue_backend_ctx[par_idx] = malloc(sizeof(CUcontext));
-			//if(par_idx>0) cuCtxCreate((CUcontext*)cqueue_backend_ctx[par_idx], 0, dev_id);
-			//cuCtxGetCurrent ((CUcontext*)cqueue_backend_ctx[par_idx]);
+	for (int par_idx = 0; par_idx < simultaneous_workers; par_idx++ ){
+		cqueue_backend_ctx[par_idx] = NULL;
+		if(mode & -1 != dev_id && 0){
+			cqueue_backend_ctx[par_idx] = malloc(sizeof(CUcontext));
+			cuCtxCreate((CUcontext*)cqueue_backend_ctx[par_idx], 0, dev_id);
+			cuCtxGetCurrent ((CUcontext*)cqueue_backend_ctx[par_idx]);
 			//long long unsigned CID;  
 			//cuCtxGetId(*(CUcontext*)cqueue_backend_ctx[par_idx], &CID);
-			//fprintf(stderr, "[dev_id=%3d] CommandQueue::CommandQueue: mode-1 CID = %llu for backend %d\n", dev_id, CID, par_idx);
-	
-			cqueue_backend_ptr[par_idx] = malloc(sizeof(cudaStream_t));
-			cudaError_t err = cudaStreamCreate((cudaStream_t*) cqueue_backend_ptr[par_idx]);
-			massert(cudaSuccess == err, "CommandQueue::CommandQueue(%d) - %s\n", dev_id, cudaGetErrorString(err));
-			cudaStream_t stream = *((cudaStream_t*) cqueue_backend_ptr[par_idx]);
+			//fprintf(stderr, "[dev_id=%3d] CommandQueue::CommandQueue: CID = %llu\n", dev_id, CID);
+		}
+		cqueue_backend_ptr[par_idx] = malloc(sizeof(cudaStream_t));
+		cudaError_t err = cudaStreamCreate((cudaStream_t*) cqueue_backend_ptr[par_idx]);
+		massert(cudaSuccess == err, "CommandQueue::CommandQueue(%d) - %s\n", dev_id, cudaGetErrorString(err));
+		cudaStream_t stream = *((cudaStream_t*) cqueue_backend_ptr[par_idx]);
+
+		if(mode & -1 != dev_id){
 			cqueue_backend_data[par_idx] = malloc(sizeof(cublasHandle_t));
 			massert(CUBLAS_STATUS_SUCCESS == cublasCreate((cublasHandle_t*) cqueue_backend_data[par_idx]),
 				"CommandQueue::CommandQueue(%d): cublasCreate failed\n", dev_id);
 			massert(CUBLAS_STATUS_SUCCESS == cublasSetStream(*((cublasHandle_t*) cqueue_backend_data[par_idx]), stream),
 				"CommandQueue::CommandQueue(%d): cublasSetStream failed\n", dev_id);
-			//void* local_ws = CoCoMalloc(2048, dev_id); 
-			//massert(CUBLAS_STATUS_SUCCESS == cublasSetWorkspace(*((cublasHandle_t*) 
-			//	cqueue_backend_data[par_idx]), local_ws, 2048), 
-			//	"CommandQueue::CommandQueue(%d): cublasSetWorkspace failed\n", dev_id);
+			if(WS_SZ >=0){
+			void* local_ws = NULL; if(WS_SZ) cudaMalloc(&local_ws, WS_SZ); 
+			massert(CUBLAS_STATUS_SUCCESS == cublasSetWorkspace(*((cublasHandle_t*) 
+				cqueue_backend_data[par_idx]), local_ws, WS_SZ), 
+				"CommandQueue::CommandQueue(%d): cublasSetWorkspace failed\n", dev_id);
+			}
 			//warning("FIXME: Running on limited SMs, custom stuff, beware this in not a drill\n");
 			//massert(CUBLAS_STATUS_SUCCESS == cublasSetSmCountTarget(*((cublasHandle_t*) cqueue_backend_data[par_idx]), 1),
 			//	"CommandQueue::CommandQueue(%d): cublasSetSmCountTarget failed\n", dev_id);
@@ -349,6 +343,9 @@ void Event::record_to_queue(CQueue_p Rr){
 		id, dev_id, Rr->dev_id, prev_dev_id, Rr->dev_id);
 #endif
 	}
+	if(Rr->cqueue_backend_ctx[Rr->backend_ctr]){
+			cuCtxSetCurrent(*(CUcontext*)Rr->cqueue_backend_ctx[Rr->backend_ctr]);
+	}
 	if (status != UNRECORDED && status != CHECKED){ // TODO: previous -> if (status != UNRECORDED)
 		;
 #ifdef UDEBUG
@@ -377,9 +374,9 @@ void Event::record_to_queue(CQueue_p Rr){
 	cudaError_t err = cudaEventRecord(cuda_event, stream);
 	status = RECORDED;
 	massert(cudaSuccess == err, "Event(%d,dev_id = %d)::record_to_queue(%d) - %s\n",  id, dev_id, Rr->dev_id, cudaGetErrorString(err));
-	if (Rr->dev_id != prev_dev_id){
+	//if (Rr->dev_id != prev_dev_id){
 		CoCoPeLiaSelectDevice(prev_dev_id);
-	}
+	//}
 	release_lock();
 #ifdef UDDEBUG
 	fprintf(stderr, "[dev_id=%3d] <-----| Event(%d)::record_to_queue(Queue(dev_id=%d))\n", dev_id, id, Rr->dev_id);

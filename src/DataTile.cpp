@@ -8,7 +8,10 @@
 #include "backend_wrappers.hpp"
 
 int transfer_link_sharing[LOC_NUM][LOC_NUM][2];
-CQueue_p recv_queues[LOC_NUM][LOC_NUM] = {{NULL}}, wb_queues[LOC_NUM][LOC_NUM] = {{NULL}}, exec_queue[LOC_NUM] = {NULL};
+CQueue_p recv_queues[LOC_NUM][LOC_NUM] = {{NULL}};
+CQueue_p wb_queues[LOC_NUM][LOC_NUM] = {{NULL}};
+CQueue_p exec_queue[LOC_NUM][MAX_BACKEND_L] = {{NULL}};
+int exec_queue_ctr[LOC_NUM] = {0}; 
 
 int DataTile::get_dtype_size() {
     if (dtype == DOUBLE) return sizeof(double);

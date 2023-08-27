@@ -29,7 +29,7 @@ typedef class CommandQueue
 	public:
 		void* cqueue_backend_ptr[MAX_BACKEND_L];
 		void* cqueue_backend_data[MAX_BACKEND_L];
-		//void* cqueue_backend_ctx[MAX_BACKEND_L];
+		void* cqueue_backend_ctx[MAX_BACKEND_L];
 		int backend_ctr = 0;
 		int simultaneous_workers = 1; 
 
@@ -261,7 +261,8 @@ void translate_binary_to_unit_list(int case_id, int* active_unit_num_p, int* act
 extern int transfer_link_sharing[LOC_NUM][LOC_NUM][2];
 extern CQueue_p recv_queues[LOC_NUM][LOC_NUM];
 extern CQueue_p wb_queues[LOC_NUM][LOC_NUM];
-extern CQueue_p exec_queue[LOC_NUM];
+extern CQueue_p exec_queue[LOC_NUM][MAX_BACKEND_L];
+extern int exec_queue_ctr[LOC_NUM]; 
 
 /*****************************************************/
 /// LinkMap stuff

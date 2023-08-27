@@ -207,8 +207,8 @@ void cublas_wrap_dgemm(void* backend_data, void* queue_wrap_p){
     (double*) *ptr_ker_translate->B, ptr_ker_translate->ldB,
     ptr_ker_translate->beta, (double*) *ptr_ker_translate->C, ptr_ker_translate->ldC);
 #endif
-  //cuCtxSetCurrent(*((CUcontext*)((CQueue_p)queue_wrap_p)->cqueue_backend_ctx
-  //  [((CQueue_p)queue_wrap_p)->backend_ctr]));
+  if(((CQueue_p)queue_wrap_p)->cqueue_backend_ctx[((CQueue_p)queue_wrap_p)->backend_ctr]) 
+    cuCtxSetCurrent(*((CUcontext*)((CQueue_p)queue_wrap_p)->cqueue_backend_ctx[((CQueue_p)queue_wrap_p)->backend_ctr]));
   cublasHandle_t temp_handle = *((cublasHandle_t*)((CQueue_p)queue_wrap_p)->cqueue_backend_data
     [((CQueue_p)queue_wrap_p)->backend_ctr]);
 
