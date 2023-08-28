@@ -290,7 +290,7 @@ void LinkRoute::optimize(void* transfer_tile_wrapped){
           total_t += temp_t;
           prev = idxize(x);
         }
-        temp_t = max_t;// + (total_t - max_t)/STREAMING_BUFFER_OVERLAP;
+        temp_t = max_t + (total_t - max_t)/STREAMING_BUFFER_OVERLAP;
         //fprintf(stderr,"Checking location list[%s]: temp_t = %lf\n", printlist(templist,hop_num), temp_t);
         prev = idxize(hop_uid_list[0]);
         double temp_ETA = 0, queue_ETA; 
@@ -302,7 +302,7 @@ void LinkRoute::optimize(void* transfer_tile_wrapped){
             //fprintf(stderr,"Checking location list[%s]: queue_ETA = %lf\n", printlist(templist,hop_num), queue_ETA);
         }
         //fprintf(stderr,"Checking location list[%s]: temp_ETA = %lf\n", printlist(templist,hop_num), temp_ETA);
-        if(abs(temp_ETA - min_ETA)/temp_t > NORMALIZE_NEAR_SPLIT_LIMIT && temp_ETA < min_ETA){
+        if(temp_ETA < min_ETA){
           min_ETA = temp_ETA;
           for (int ctr = 0; ctr < hop_num; ctr++) best_list[0][ctr] = templist[ctr];
           tie_list_num = 1;
@@ -312,7 +312,7 @@ void LinkRoute::optimize(void* transfer_tile_wrapped){
           printlist(best_list[tie_list_num-1],hop_num));
 #endif
         }
-        else if (abs(temp_ETA - min_ETA)/temp_t <= NORMALIZE_NEAR_SPLIT_LIMIT){
+        else if (temp_ETA == min_ETA){
           for (int ctr = 0; ctr < hop_num; ctr++) best_list[tie_list_num][ctr] = templist[ctr];
           tie_list_num++;
 #ifdef PDEBUG
