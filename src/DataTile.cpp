@@ -17,6 +17,7 @@ int DataTile::get_dtype_size() {
     if (dtype == DOUBLE) return sizeof(double);
     else if (dtype == FLOAT) return sizeof(float);
     else error("dtypesize: Unknown type");
+    return -1;
 }
 
 void DataTile::set_loc_idx(int loc_idx, int val){
@@ -53,8 +54,10 @@ const char* DataTile::get_WRP_string(){
       return "WONLY";
     case WR:  
       return "WR";
-    case WREDUCE:  
-      return "WREDUCE";
+    case WR_LAZY:  
+      return "WR_LAZY";   
+    case W_REDUCE:  
+      return "W_REDUCE";
     default:
         error("DataTile::get_WRP_string(): Unknown WRP\n");
     }
@@ -63,9 +66,9 @@ const char* DataTile::get_WRP_string(){
 
 int DataTile::size() { return get_dtype_size()*dim1*dim2;}
 
-void DataTile::fetch(int priority_loc_id)
+void DataTile::fetch(CBlock_p target_block, int priority_loc_id)
 {
-  if (!(WRP == WR || WRP== RONLY)) error("DataTile::fetch called with WRP = %s\n", get_WRP_string());
+  if (!(WRP == WR || WRP== RONLY || WRP == WR_LAZY)) error("DataTile::fetch called with WRP = %s\n", get_WRP_string());
   
   set_loc_idx(idxize(priority_loc_id), 2);
 
@@ -105,7 +108,7 @@ void DataTile::fetch(int priority_loc_id)
         else block_ptr[inter_hop] = Global_Buffer_2D[idxize(best_route->hop_uid_list[inter_hop])]->assign_Cblock(EXCLUSIVE,false);
 
     }
-    else block_ptr[inter_hop] = StoreBlock[idxize(priority_loc_id)];
+    else block_ptr[inter_hop] = target_block;
 
     best_route->hop_buf_list[inter_hop] = block_ptr[inter_hop]->Adrs;
     best_route->hop_event_list[inter_hop-1] = block_ptr[inter_hop]->Available;
@@ -120,7 +123,7 @@ void DataTile::fetch(int priority_loc_id)
   
   CQueue_p used_queue = best_route->hop_cqueue_list[best_route->hop_num-2];
 
-  if(WRP == WR){
+  if(WRP == WR || WRP == W_REDUCE || WRP == WR_LAZY){
       for(int inter_hop = 1 ; inter_hop < best_route->hop_num - 1; inter_hop++){
         CBlock_wrap_p wrap_inval = NULL;
         wrap_inval = (CBlock_wrap_p) malloc (sizeof(struct CBlock_wrap));
@@ -134,9 +137,8 @@ void DataTile::fetch(int priority_loc_id)
   else{
     for(int inter_hop = 1 ; inter_hop < best_route->hop_num; inter_hop++)
       loc_map[idxize(best_route->hop_uid_list[inter_hop])] = 42; 
-
   }
-  if (WRP == WR){
+  if (WRP == WR || WRP == W_REDUCE || WRP == WR_LAZY){
     CBlock_wrap_p wrap_inval = NULL;
     wrap_inval = (CBlock_wrap_p) malloc (sizeof(struct CBlock_wrap));
     wrap_inval->lockfree = false;
@@ -154,16 +156,51 @@ void DataTile::fetch(int priority_loc_id)
 #endif
 }
 
+void DataTile::operations_complete(CQueue_p assigned_exec_queue){
+  short W_master_idx = idxize(W_master);
+  if(WR == WRP){
+    W_complete->record_to_queue(assigned_exec_queue);
+#ifdef SUBKERNELS_FIRE_WHEN_READY
+    writeback();
+#endif
+  }
+  else if(WR_LAZY == WRP){
+    CBlock_p temp_block = Global_Buffer_2D[W_master_idx]->assign_Cblock(EXCLUSIVE,false);
+    temp_block->set_owner(NULL,false);
+    fetch(temp_block, W_master);
+    assigned_exec_queue->wait_for_event(temp_block->Available);
+    axpy_backend_in<double>* backend_axpy_wrapper = (axpy_backend_in<double>*) malloc(sizeof(struct axpy_backend_in<double>));
+    backend_axpy_wrapper->N = dim1*dim2;
+    backend_axpy_wrapper->incx = backend_axpy_wrapper->incy = 1;
+    backend_axpy_wrapper->alpha = reduce_mult;
+    backend_axpy_wrapper->dev_id = W_master;
+    backend_axpy_wrapper->x = (void**) &(temp_block->Adrs);
+    backend_axpy_wrapper->y = (void**) &(StoreBlock[W_master_idx]->Adrs);
+    backend_run_operation(backend_axpy_wrapper, "Daxpy", assigned_exec_queue);
+    W_complete->record_to_queue(assigned_exec_queue);
+#ifdef SUBKERNELS_FIRE_WHEN_READY
+    writeback();
+#endif
+    CBlock_wrap_p wrap_inval = NULL;
+    wrap_inval = (CBlock_wrap_p) malloc (sizeof(struct CBlock_wrap));
+    wrap_inval->lockfree = false;
+    wrap_inval->CBlock = temp_block;
+    assigned_exec_queue->add_host_func((void*)&CBlock_RW_INV_wrap, (void*) wrap_inval);
+  }
+}
+
 void DataTile::writeback(){
 	short W_master_idx = idxize(W_master);
 	short Writeback_id = get_initial_location(), Writeback_id_idx = idxize(Writeback_id);
-	if (WRP != WR) return;
+	if (!(WRP == WR || WRP == WR_LAZY))
+    error("DataTile::writeback -> Tile(%d.[%d,%d]) has WRP = %s\n",
+			id, GridId1, GridId2, WRP);
 	if (StoreBlock[W_master_idx] == NULL || StoreBlock[W_master_idx]->State == INVALID)
-			error("DataTile::writeback -> Tile(%d.[%d,%d]) Storeblock[%d] is NULL\n",
-				id, GridId1, GridId2, W_master_idx);
+		error("DataTile::writeback -> Tile(%d.[%d,%d]) Storeblock[%d] is NULL\n",
+			id, GridId1, GridId2, W_master_idx);
 	if (StoreBlock[Writeback_id_idx] == NULL)
-			error("DataTile::writeback -> Tile(%d.[%d,%d]) Storeblock[%d] is NULL\n",
-				id, GridId1, GridId2, Writeback_id_idx);
+		error("DataTile::writeback -> Tile(%d.[%d,%d]) Storeblock[%d] is NULL\n",
+      id, GridId1, GridId2, Writeback_id_idx);
 	if (W_master_idx == Writeback_id);
 	else{
     LinkRoute_p best_route = new LinkRoute();

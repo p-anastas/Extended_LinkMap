@@ -35,9 +35,13 @@
 */
 
 void CoCoSyncCheckErr(){
-  cudaError_t errSync = cudaDeviceSynchronize();
-  if (errSync != cudaSuccess)
-    printf("Sync kernel error: %s\n", cudaGetErrorString(errSync));
+  for(int dev_idx = 0; dev_idx < LOC_NUM; dev_idx++)
+  {
+    CoCoPeLiaSelectDevice(deidxize(dev_idx)); 
+    cudaError_t errSync = cudaDeviceSynchronize();
+    if (errSync != cudaSuccess)
+      printf("Sync kernel error: %s\n", cudaGetErrorString(errSync));
+  }
 }
 
 void CoCoASyncCheckErr(){

@@ -167,6 +167,15 @@ void cublas_wrap_daxpy(void* backend_data, void* queue_wrap_p){
   axpy_backend_in<double>* ptr_ker_translate = (axpy_backend_in<double>*) backend_data;
   CoCoPeLiaSelectDevice(ptr_ker_translate->dev_id);
 
+#ifdef DEBUG
+  fprintf(stderr,"cublas_wrap_daxpy: cublasDaxpy(dev_id = %d,\
+    N = %d, alpha = %lf, x = %p, incx = %d, y = %p, incy = %d)\n",
+    ptr_ker_translate->dev_id, ptr_ker_translate->N, ptr_ker_translate->alpha,
+    (double*) *ptr_ker_translate->x, ptr_ker_translate->incx,
+    (double*) *ptr_ker_translate->y, ptr_ker_translate->incy);
+#endif
+  if(((CQueue_p)queue_wrap_p)->cqueue_backend_ctx[((CQueue_p)queue_wrap_p)->backend_ctr]) 
+    cuCtxSetCurrent(*((CUcontext*)((CQueue_p)queue_wrap_p)->cqueue_backend_ctx[((CQueue_p)queue_wrap_p)->backend_ctr]));
   cublasHandle_t temp_handle = *((cublasHandle_t*)((CQueue_p)queue_wrap_p)->cqueue_backend_data
     [((CQueue_p)queue_wrap_p)->backend_ctr]);
 

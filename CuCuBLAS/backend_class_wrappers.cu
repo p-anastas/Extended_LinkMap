@@ -80,14 +80,14 @@ CommandQueue::CommandQueue(int dev_id_in, int mode)
 #endif
 	for (int par_idx = 0; par_idx < simultaneous_workers; par_idx++ ){
 		cqueue_backend_ctx[par_idx] = NULL;
-		if(mode & -1 != dev_id && 0){
+		/*if(mode & -1 != dev_id){
 			cqueue_backend_ctx[par_idx] = malloc(sizeof(CUcontext));
 			cuCtxCreate((CUcontext*)cqueue_backend_ctx[par_idx], 0, dev_id);
 			cuCtxGetCurrent ((CUcontext*)cqueue_backend_ctx[par_idx]);
-			//long long unsigned CID;  
-			//cuCtxGetId(*(CUcontext*)cqueue_backend_ctx[par_idx], &CID);
-			//fprintf(stderr, "[dev_id=%3d] CommandQueue::CommandQueue: CID = %llu\n", dev_id, CID);
-		}
+			long long unsigned CID;  
+			cuCtxGetId(*(CUcontext*)cqueue_backend_ctx[par_idx], &CID);
+			fprintf(stderr, "[dev_id=%3d] CommandQueue::CommandQueue: CID = %llu\n", dev_id, CID);
+		}*/
 		cqueue_backend_ptr[par_idx] = malloc(sizeof(cudaStream_t));
 		cudaError_t err = cudaStreamCreate((cudaStream_t*) cqueue_backend_ptr[par_idx]);
 		massert(cudaSuccess == err, "CommandQueue::CommandQueue(%d) - %s\n", dev_id, cudaGetErrorString(err));

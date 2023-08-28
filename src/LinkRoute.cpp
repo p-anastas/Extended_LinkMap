@@ -306,30 +306,30 @@ void LinkRoute::optimize(void* transfer_tile_wrapped){
           min_ETA = temp_ETA;
           for (int ctr = 0; ctr < hop_num; ctr++) best_list[0][ctr] = templist[ctr];
           tie_list_num = 1;
-//#ifdef PDEBUG
-        //fprintf(stderr,"DataTile[%d:%d,%d]: New min_ETA(%lf) for route = %s\n", 
-        //  transfer_tile->id, transfer_tile->GridId1, transfer_tile->GridId2, min_ETA, 
-        //  printlist(best_list[tie_list_num-1],hop_num));
-//#endif
+#ifdef PDEBUG
+        fprintf(stderr,"DataTile[%d:%d,%d]: New min_ETA(%lf) for route = %s\n", 
+          transfer_tile->id, transfer_tile->GridId1, transfer_tile->GridId2, min_ETA, 
+          printlist(best_list[tie_list_num-1],hop_num));
+#endif
         }
         else if (abs(temp_ETA - min_ETA)/temp_t <= NORMALIZE_NEAR_SPLIT_LIMIT){
           for (int ctr = 0; ctr < hop_num; ctr++) best_list[tie_list_num][ctr] = templist[ctr];
           tie_list_num++;
-//#ifdef PDEBUG
-        //  fprintf(stderr,"DataTile[%d:%d,%d]: same min_ETA(%lf) for candidate(%d) route = %s\n", 
-        //    transfer_tile->id, transfer_tile->GridId1, transfer_tile->GridId2, temp_ETA, 
-        //    tie_list_num, printlist(best_list[tie_list_num-1],hop_num));
-//#endif
+#ifdef PDEBUG
+          fprintf(stderr,"DataTile[%d:%d,%d]: same min_ETA(%lf) for candidate(%d) route = %s\n", 
+            transfer_tile->id, transfer_tile->GridId1, transfer_tile->GridId2, temp_ETA, 
+            tie_list_num, printlist(best_list[tie_list_num-1],hop_num));
+#endif
         }
         flag = std::next_permutation(loc_list.begin(), loc_list.end());
       }
       
       int rand_tie_list = int(rand() % tie_list_num); 
-//#ifdef PDEBUG
-      //fprintf(stderr,"DataTile[%d:%d,%d]: Selected route = %s from %d candidates with ETA = %lf\n", 
-      //    transfer_tile->id, transfer_tile->GridId1, transfer_tile->GridId2,
-      //    printlist(best_list[tie_list_num-1],hop_num), tie_list_num, min_ETA);
-//#endif
+#ifdef PDEBUG
+      fprintf(stderr,"DataTile[%d:%d,%d]: Selected route = %s from %d candidates with ETA = %lf\n", 
+          transfer_tile->id, transfer_tile->GridId1, transfer_tile->GridId2,
+          printlist(best_list[tie_list_num-1],hop_num), tie_list_num, min_ETA);
+#endif
       for(int ctr = 0; ctr < hop_num; ctr++){
         hop_uid_list[ctr+1] = best_list[rand_tie_list][ctr];
         recv_queues[idxize(hop_uid_list[ctr+1])][idxize(hop_uid_list[ctr])]->

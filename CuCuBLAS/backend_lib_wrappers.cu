@@ -150,20 +150,19 @@ char PrintCublasOp(cublasOperation_t src)
 	else error("PrintCublasOp: Invalid Op\n");
 }
 
-#ifdef MULTIDEVICE_REDUCTION_ENABLE
-
-template<typename VALUETYPE>
-void CoCoAdd2D(VALUETYPE* dest, long int ldest, VALUETYPE* src, long int lsrc,
-	long int rows, long int cols, short loc, CQueue_p add_queue){
-	short lvl = 7;
+/*
+void CoCoAdd2D_wrapped(void* reduce_wrap){
 #ifdef DDEBUG
-	lprintf(lvl, "CoCoAdd2DAsync(dest = %p, ldest =%zu, src=%p, lsrc = %zu, rows = %zu, cols = %zu, loc = %d)\n",
+	fprintf(stderr, "CoCoAdd2DAsync(dest = %p, ldest =%zu, src=%p, lsrc = %zu, rows = %zu, cols = %zu, loc = %d)\n",
 		dest, ldest, src, lsrc, rows, cols, loc);
 #endif
 #ifdef TEST
 	double cpu_timer = csecond();
 #endif
+  axpy_backend_in<double>* ptr_ker_translate = (axpy_backend_in<double>*) backend_data;
 
+VALUETYPE* dest, long int ldest, VALUETYPE* src, long int lsrc,
+	long int rows, long int cols, short loc, CQueue_p add_queue
   // Stable implementation with sync
   if(loc == -1){
     axpy_backend_in<double>* backend_axpy_wrapper = (axpy_backend_in<double>*) malloc(sizeof(struct axpy_backend_in));
@@ -201,7 +200,7 @@ void CoCoAdd2D(VALUETYPE* dest, long int ldest, VALUETYPE* src, long int lsrc,
 
 #ifdef TEST
 	cpu_timer = csecond() - cpu_timer;
-  lprintf(lvl, "CoCoAdd2D(loc=%d, cols=%d, rows=%d): t_reduce_add = %lf ms\n", loc, cols, rows, cpu_timer*1000);
+  fprintf(stderr, "CoCoAdd2D(loc=%d, cols=%d, rows=%d): t_reduce_add = %lf ms\n", loc, cols, rows, cpu_timer*1000);
 #endif
 }
 
@@ -234,9 +233,9 @@ void* CoCoMemcpyReduce2DWrapped(void* wrapped_data){
   short lvl = 5;
   short loc_dest_idx = (loc_dest == -1)? LOC_NUM - 1: loc_dest;
 #ifdef DEBUG
-  lprintf(lvl, "CoCoMemcpyReduce2DAsync(buf = %p, dest=%p, ldest =%zu, src=%p, lsrc = %zu, rows = %zu, cols = %zu, elemsize = %d, loc_dest = %d, loc_src = %d)\n",
+  fprintf(stderr, "CoCoMemcpyReduce2DAsync(buf = %p, dest=%p, ldest =%zu, src=%p, lsrc = %zu, rows = %zu, cols = %zu, elemsize = %d, loc_dest = %d, loc_src = %d)\n",
     reduce_buffer, dest, ldest, src, lsrc, rows, cols, elemSize, loc_dest, loc_src);
-  lprintf(lvl, "Blocking until reduce_block_lock[%d]\n", reduce_buf_it*128 + loc_dest_idx);
+  fprintf(stderr, "Blocking until reduce_block_lock[%d]\n", reduce_buf_it*128 + loc_dest_idx);
 #endif
 #ifdef TEST
   double cpu_timer = csecond();
@@ -246,7 +245,7 @@ void* CoCoMemcpyReduce2DWrapped(void* wrapped_data){
 
 #ifdef TEST
   cpu_timer = csecond() - cpu_timer;
-  lprintf(lvl, "CoCoMemcpyReduce2DAsync(buf = %p, loc_dest = %d, loc_src = %d): Blocked waiting for reduce_block_lock[%d] lock: %lf ms\n",
+  fprintf(stderr, "CoCoMemcpyReduce2DAsync(buf = %p, loc_dest = %d, loc_src = %d): Blocked waiting for reduce_block_lock[%d] lock: %lf ms\n",
     reduce_buffer, loc_dest, loc_src, reduce_buf_it*128 + loc_dest_idx, cpu_timer*1000);
   cpu_timer = csecond();
 #endif
@@ -255,14 +254,14 @@ void* CoCoMemcpyReduce2DWrapped(void* wrapped_data){
   src_reduce_queue->sync_barrier();
 
 #ifdef DEBUG
-  lprintf(lvl, "CoCoMemcpyReduce2DAsync(dest=%d, src=%d): Blocking until Tile_lock(%p)\n", loc_dest, loc_src, Tile_lock);
+  fprintf(stderr, "CoCoMemcpyReduce2DAsync(dest=%d, src=%d): Blocking until Tile_lock(%p)\n", loc_dest, loc_src, Tile_lock);
 #endif
 
   CoCoQueueLock((void*)Tile_lock);
 
 #ifdef TEST
   cpu_timer = csecond() - cpu_timer;
-  lprintf(lvl, "CoCoMemcpyReduce2DAsync(buf = %p, loc_dest = %d, loc_src = %d): Blocked waiting for Tile lock: %lf ms\n",
+  fprintf(stderr, "CoCoMemcpyReduce2DAsync(buf = %p, loc_dest = %d, loc_src = %d): Blocked waiting for Tile lock: %lf ms\n",
     reduce_buffer, loc_dest, loc_src, cpu_timer*1000);
   cpu_timer = csecond();
 #endif
@@ -274,7 +273,7 @@ void* CoCoMemcpyReduce2DWrapped(void* wrapped_data){
 
 #ifdef TEST
   cpu_timer = csecond() - cpu_timer;
-  lprintf(lvl, "CoCoMemcpyReduce2D(loc_src=%d, loc_dest=%d, cols=%d, rows=%d): t_reduce_total = %lf ms\n", loc_src, loc_dest, cols, rows, cpu_timer*1000);
+  fprintf(stderr, "CoCoMemcpyReduce2D(loc_src=%d, loc_dest=%d, cols=%d, rows=%d): t_reduce_total = %lf ms\n", loc_src, loc_dest, cols, rows, cpu_timer*1000);
 #endif
 
   return wrapped_data;
@@ -334,5 +333,4 @@ void CoCoReduceSyncThreads(){
   }
   thread_ctr = 0;
 }
-
-#endif
+*/

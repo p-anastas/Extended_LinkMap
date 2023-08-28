@@ -18,7 +18,8 @@ enum WR_properties{
 		RONLY = 1,
 		WONLY = 2,
         WR = 3,
-        WREDUCE = 4
+        WR_LAZY = 4,
+        W_REDUCE = 5
 };
 
 typedef class DataTile{
@@ -31,7 +32,7 @@ public:
     int W_pending = -42;
     Event_p W_complete = NULL; 
     int W_master_backend_ctr = -42;
-
+    double reduce_mult; 
     // loc_map values mean: 
     // - not available = -42
     // - available in location = 42 (exhept initial)
@@ -53,7 +54,8 @@ public:
     void set_loc_idx(int loc_idx, int val);
     void set_WRP(WR_properties inprop);
 
-    void fetch(int priority_loc_id);
+    void fetch(CBlock_p target_block, int priority_loc_id);
+    void operations_complete(CQueue_p assigned_exec_queue);
     void writeback();
 }* DataTile_p;
 
