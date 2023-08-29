@@ -31,6 +31,7 @@ Tile2D::Tile2D(void *in_addr, int in_dim1, int in_dim2,
     if (iloc == init_loc_idx)
     {
       loc_map[iloc] = 0;
+      block_ETA[iloc] = 0; 
       StoreBlock[iloc] = init_loc_block_p;
       StoreBlock[iloc]->Adrs = in_addr;
       StoreBlock[iloc]->set_owner((void **)&StoreBlock[iloc], false);
@@ -42,7 +43,8 @@ Tile2D::Tile2D(void *in_addr, int in_dim1, int in_dim2,
       StoreBlock[iloc] = NULL;
       ldim[iloc] = in_dim1;
       loc_map[iloc] = -42;
-    }
+      block_ETA[iloc] = -42; 
+    } 
   }
 #ifdef DDEBUG
   lprintf(lvl - 1, "<-----|\n");

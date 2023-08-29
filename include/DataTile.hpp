@@ -41,7 +41,6 @@ public:
     // - other target loc(s) = 1
     int loc_map[LOC_NUM]; 
     CBlock_p StoreBlock[LOC_NUM];
-    double block_ETA[LOC_NUM] = {-42}; 
 
     // General Functions
     int get_dtype_size();
@@ -57,6 +56,15 @@ public:
     void fetch(CBlock_p target_block, int priority_loc_id);
     void operations_complete(CQueue_p assigned_exec_queue);
     void writeback();
+
+    /*****************************************************/
+    /// PARALia 2.0 - timed queues and blocks
+    void ETA_add_task(long double task_duration, int dev_id);
+    void ETA_set(long double new_workload_t, int dev_id);
+    long double ETA_get(int dev_id);
+    long double ETA_fetch_estimate(int target_id); 
+    long double block_ETA[LOC_NUM]; 
+
 }* DataTile_p;
 
 class Tile1D : public DataTile {

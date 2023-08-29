@@ -70,7 +70,7 @@ CommandQueue::CommandQueue(int dev_id_in, int mode)
 #endif
 	}
 	//simultaneous_workers = MAX_BACKEND_L; // Bye bye parallel backends, i am older now (use seperate queues)
-	workload_t = 0; 
+	queue_ETA = 0; 
 	backend_ctr = 0;
 	//if(!mode) 
 	simultaneous_workers = 1; 
@@ -232,16 +232,16 @@ void CommandQueue::set_parallel_backend(int backend_ctr_in)
 /*****************************************************/
 /// PARALia 2.0 - timed queues
 
-void CommandQueue::WT_add_task(double task_duration){
-	workload_t+= task_duration;
+void CommandQueue::ETA_add_task(long double task_fire_t, long double task_duration){
+	queue_ETA = fmax(queue_ETA, task_fire_t) + task_duration;
 }
 
-void CommandQueue::WT_set(double new_workload_t){
-	workload_t = new_workload_t; 
+void CommandQueue::ETA_set(long double new_ETA){
+	queue_ETA = new_ETA; 
 }
 
-double CommandQueue::WT_get(){
-	return workload_t;
+long double CommandQueue::ETA_get(){
+	return queue_ETA;
 }
 
 /*****************************************************/

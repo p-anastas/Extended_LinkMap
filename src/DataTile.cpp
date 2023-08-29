@@ -7,7 +7,7 @@
 #include "DataTile.hpp"
 #include "backend_wrappers.hpp"
 
-int transfer_link_sharing[LOC_NUM][LOC_NUM][2];
+int links_share_bandwidth[LOC_NUM][LOC_NUM][2];
 CQueue_p recv_queues[LOC_NUM][LOC_NUM] = {{NULL}};
 CQueue_p wb_queues[LOC_NUM][LOC_NUM] = {{NULL}};
 CQueue_p exec_queue[LOC_NUM][MAX_BACKEND_L] = {{NULL}};
@@ -80,7 +80,7 @@ void DataTile::fetch(CBlock_p target_block, int priority_loc_id)
   LinkRoute_p best_route = new LinkRoute();
   best_route->starting_hop = 0;
 
-  best_route->optimize(this); // The core of our optimization
+  best_route->optimize(this, 1); // The core of our optimization
 
 #ifdef DEBUG
   fprintf(stderr, "DataTile[%d:%d,%d]::fetch(%d) WRP = %s, Road = %s \n", id, GridId1, GridId2, 
@@ -115,6 +115,7 @@ void DataTile::fetch(CBlock_p target_block, int priority_loc_id)
     best_route->hop_cqueue_list[inter_hop-1] = 
       recv_queues[idxize(best_route->hop_uid_list[inter_hop])]
       [idxize(best_route->hop_uid_list[inter_hop-1])];
+    ETA_set(best_route->hop_cqueue_list[inter_hop-1]->ETA_get(), best_route->hop_uid_list[inter_hop]);
 
   }
   best_route->hop_cqueue_list[0]->wait_for_event(block_ptr[0]->Available); // TODO: is this needed for all optimization methods?
@@ -259,4 +260,35 @@ void DataTile::writeback(){
 #ifndef ASYNC_ENABLE
 	CoCoSyncCheckErr();
 #endif
+}
+
+/*****************************************************/
+/// PARALia 2.0 - timed queues and blocks
+
+void DataTile::ETA_add_task(long double task_duration, int dev_id){
+	block_ETA[idxize(dev_id)] += task_duration;
+}
+
+void DataTile::ETA_set(long double new_workload_t, int dev_id){
+	block_ETA[idxize(dev_id)] = new_workload_t; 
+}
+
+long double DataTile::ETA_get(int dev_id){
+	return block_ETA[idxize(dev_id)];
+}
+
+long double DataTile::ETA_fetch_estimate(int target_id){
+
+  long double result = 1e9; 
+  int temp_val = loc_map[idxize(target_id)];
+  set_loc_idx(idxize(target_id), 2);
+
+  LinkRoute_p best_route = new LinkRoute();
+  best_route->starting_hop = 0;
+
+  result = best_route->optimize(this, 0);
+
+  set_loc_idx(idxize(target_id), temp_val);
+
+  return result; 
 }

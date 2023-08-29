@@ -52,10 +52,10 @@ typedef class CommandQueue
 		/*****************************************************/
 		/// PARALia 2.0 - simple timed queues (without slowdowns)
 		// An estimation of when the queue will be free of tasks.
-		double workload_t = 0; 
-		void WT_add_task(double task_duration);
-		void WT_set(double new_workload_t);
-		double WT_get();
+		long double queue_ETA = 0; 
+		void ETA_add_task(long double task_fire_t, long double task_duration);
+		void ETA_set(long double new_ETA);
+		long double ETA_get();
 
 }* CQueue_p;
 
@@ -169,7 +169,7 @@ public:
 	CQueue_p hop_cqueue_list[LOC_NUM-1];
 	Event_p hop_event_list[LOC_NUM-1];
 
-	void optimize(void* transfer_tile_wrapped); // Target: 0/42 -> 2 [+1] 
+	long double optimize(void* transfer_tile_wrapped, int update_ETA_flag); // Target: 0/42 -> 2 [+1] 
 	void optimize_reverse(void* transfer_tile_wrapped); // Target: 42 -> 0 
 }* LinkRoute_p;
 
@@ -258,7 +258,7 @@ inline int is_in_list(int elem, int* elem_list, int list_len){ for (int idx = 0;
 		if(elem_list[idx] == elem) return 1; return 0; }
 void translate_binary_to_unit_list(int case_id, int* active_unit_num_p, int* active_unit_id_list);
 
-extern int transfer_link_sharing[LOC_NUM][LOC_NUM][2];
+extern int links_share_bandwidth[LOC_NUM][LOC_NUM][2];
 extern CQueue_p recv_queues[LOC_NUM][LOC_NUM];
 extern CQueue_p wb_queues[LOC_NUM][LOC_NUM];
 extern CQueue_p exec_queue[LOC_NUM][MAX_BACKEND_L];

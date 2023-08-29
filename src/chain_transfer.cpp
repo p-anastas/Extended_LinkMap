@@ -16,7 +16,7 @@
 int fast_trans_ctr = 0;
 long long bytes[100000] = {0};
 int inter_hop_locs[100000][5];
-double inter_hop_timers[100000][6][3];
+double inter_hop_timers[100000][4][3];
 int timer_ctr[LOC_NUM][LOC_NUM] = {{0}};
 double link_gbytes_s[LOC_NUM][LOC_NUM] = {{0}};
 int hop_log_lock = 0; /// This might slow down things, but it is needed. 
@@ -43,7 +43,7 @@ void FasTCoCoMemcpy2DAsync(LinkRoute_p roadMap, long int rows, long int cols, sh
 	if(roadMap->hop_num - roadMap->starting_hop < 2) error("FasTCoCoMemcpy2DAsync: Cannot copy with less than 2 locations\n");
 #ifdef TTEST
 	while(__sync_lock_test_and_set(&hop_log_lock, 1));
-	if (roadMap->hop_num > 6) error("FasTCoCoMemcpy2DAsync(dest = %d, src = %d) exeeded 5 intermediate hops in TTEST Mode\n",
+	if (roadMap->hop_num > 5) error("FasTCoCoMemcpy2DAsync(dest = %d, src = %d) exeeded 5 hops in TTEST Mode\n",
 			roadMap->hop_uid_list[roadMap->starting_hop], roadMap->hop_uid_list[roadMap->hop_num]);
 	if (fast_trans_ctr > 100000) error("FasTCoCoMemcpy2DAsync(dest = %d, src = %d) exeeded 100000 transfers in TTEST Mode\n",
 			roadMap->hop_uid_list[roadMap->starting_hop], roadMap->hop_uid_list[roadMap->hop_num]);
@@ -150,7 +150,7 @@ void HopMemcpyPrint(){
 		}*/
 	}
 		
-	lprintf(0,"\n Hop Tranfer Map:\n   |");
+	lprintf(0,"\n Hop Tranfer Map (Full chain):\n   |");
 	for (int d2 = 0; d2 < LOC_NUM; d2++)
 		lprintf(0, "  %2d  |", deidxize(d2));
 	lprintf(0, "\n   |");
@@ -165,7 +165,52 @@ void HopMemcpyPrint(){
 		lprintf(0, "\n");
 	}
 
-	lprintf(0,"\n Hop Tranfer Map Achieved Bandwidths (GB/s):\n   |");
+	lprintf(0,"\n Hop Tranfer Map (Full chain) Achieved Bandwidths (GB/s):\n   |");
+	for (int d2 = 0; d2 < LOC_NUM; d2++)
+		lprintf(0, "  %2d   |", deidxize(d2));
+	lprintf(0, "\n   |");
+	for (int d2 = 0; d2 < LOC_NUM; d2++)
+		lprintf(0, "--------");
+	lprintf(0, "\n");
+	for (int d1 = 0; d1 < LOC_NUM; d1++){
+		lprintf(0, "%2d | ", deidxize(d1));
+		for (int d2 = 0; d2 < LOC_NUM; d2++)
+			if (timer_ctr[d1][d2]) lprintf(0, "%.2lf | ", link_gbytes_s[d1][d2]/timer_ctr[d1][d2]);
+			else lprintf(0, "  -   | ");
+		lprintf(0, "\n");
+	}
+
+	for (int d1 = 0; d1 < LOC_NUM; d1++)
+		for (int d2 = 0; d2 < LOC_NUM; d2++){
+			timer_ctr[d1][d2] = 0; 
+			link_gbytes_s[d1][d2] = 0; 
+		}
+
+	for(int k = 0; k < fast_trans_ctr; k++){
+		for(int l = 1; l < 5; l++) if(inter_hop_locs[k][l]!= -42){
+			timer_ctr[idxize(inter_hop_locs[k][l])][idxize(inter_hop_locs[k][l-1])]++;
+			double time = (inter_hop_timers[k][l-1][2] - inter_hop_timers[k][l-1][1]), 
+				pipe_time = (inter_hop_timers[k][l-1][2] - inter_hop_timers[k][l-1][0]);
+			link_gbytes_s[idxize(inter_hop_locs[k][l])][idxize(inter_hop_locs[k][l-1])]+=Gval_per_s(bytes[k], time);
+		}
+	}
+
+	lprintf(0,"\n Hop Tranfer Map (All hops):\n   |");
+	for (int d2 = 0; d2 < LOC_NUM; d2++)
+		lprintf(0, "  %2d  |", deidxize(d2));
+	lprintf(0, "\n   |");
+	for (int d2 = 0; d2 < LOC_NUM; d2++)
+		lprintf(0, "-------");
+	lprintf(0, "\n");
+	for (int d1 = 0; d1 < LOC_NUM; d1++){
+		lprintf(0, "%2d | ", deidxize(d1));
+		for (int d2 = 0; d2 < LOC_NUM; d2++){
+			lprintf(0, "%4d | ", timer_ctr[d1][d2]);
+		}
+		lprintf(0, "\n");
+	}
+
+	lprintf(0,"\n Hop Tranfer Map (All hops) Achieved Bandwidths (GB/s):\n   |");
 	for (int d2 = 0; d2 < LOC_NUM; d2++)
 		lprintf(0, "  %2d   |", deidxize(d2));
 	lprintf(0, "\n   |");
