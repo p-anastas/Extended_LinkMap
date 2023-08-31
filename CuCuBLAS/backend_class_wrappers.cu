@@ -78,6 +78,11 @@ CommandQueue::CommandQueue(int dev_id_in, int mode)
 	fprintf(stderr, "[dev_id=%3d] ------- CommandQueue::CommandQueue(): Initializing parallel queue with %d Backend workers\n",
 		dev_id, simultaneous_workers);
 #endif
+	int least_pr, greatest_pr; 
+	cudaDeviceGetStreamPriorityRange(&least_pr, &greatest_pr);
+#ifdef DEBUG
+	;//fprintf(stderr, "Priority ranges = %d to %d (less is higer)\n", least_pr, greatest_pr); 
+#endif
 	for (int par_idx = 0; par_idx < simultaneous_workers; par_idx++ ){
 		cqueue_backend_ctx[par_idx] = NULL;
 		/*if(mode & -1 != dev_id){
@@ -89,11 +94,15 @@ CommandQueue::CommandQueue(int dev_id_in, int mode)
 			fprintf(stderr, "[dev_id=%3d] CommandQueue::CommandQueue: CID = %llu\n", dev_id, CID);
 		}*/
 		cqueue_backend_ptr[par_idx] = malloc(sizeof(cudaStream_t));
-		cudaError_t err = cudaStreamCreate((cudaStream_t*) cqueue_backend_ptr[par_idx]);
+		int priority = (mode)? -1*(abs(mode + greatest_pr -1) % abs(greatest_pr -1)) : greatest_pr; 
+		cudaError_t err = cudaStreamCreateWithPriority(
+				(cudaStream_t*) cqueue_backend_ptr[par_idx], cudaStreamNonBlocking, priority);
 		massert(cudaSuccess == err, "CommandQueue::CommandQueue(%d) - %s\n", dev_id, cudaGetErrorString(err));
 		cudaStream_t stream = *((cudaStream_t*) cqueue_backend_ptr[par_idx]);
-
-		if(mode & -1 != dev_id){
+#ifdef DEBUG
+		fprintf(stderr, "CommandQueue::CommandQueue(%d) - Initialized stream with priority %d\n", dev_id, priority); 
+#endif
+		if(mode && -1 != dev_id){
 			cqueue_backend_data[par_idx] = malloc(sizeof(cublasHandle_t));
 			massert(CUBLAS_STATUS_SUCCESS == cublasCreate((cublasHandle_t*) cqueue_backend_data[par_idx]),
 				"CommandQueue::CommandQueue(%d): cublasCreate failed\n", dev_id);

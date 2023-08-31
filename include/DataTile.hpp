@@ -30,6 +30,7 @@ public:
     WR_properties WRP;
     int W_master = -42;
     int W_pending = -42;
+    int fired_times = 0; 
     Event_p W_complete = NULL; 
     int W_master_backend_ctr = -42;
     double reduce_mult; 
