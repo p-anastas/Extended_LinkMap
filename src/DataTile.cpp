@@ -292,3 +292,109 @@ long double DataTile::ETA_fetch_estimate(int target_id){
 
   return result; 
 }
+
+
+int Tile2D_num = 0;
+
+Tile2D::Tile2D(void *in_addr, int in_dim1, int in_dim2,
+               int in_ldim, int inGrid1, int inGrid2, dtype_enum dtype_in, CBlock_p init_loc_block_p)
+{
+  short lvl = 3;
+#ifdef DDEBUG
+  lprintf(lvl - 1, "|-----> Tile2D(%d)::Tile2D(in_addr(%d),%d,%d,%d, %d, %d)\n",
+          Tile2D_num, CoCoGetPtrLoc(in_addr), in_dim1, in_dim2, in_ldim, inGrid1, inGrid2);
+#endif
+  dtype = dtype_in;
+  dim1 = in_dim1;
+  dim2 = in_dim2;
+  GridId1 = inGrid1;
+  GridId2 = inGrid2;
+  id = Tile2D_num;
+  Tile2D_num++;
+  short init_loc = CoCoGetPtrLoc(in_addr);
+  short init_loc_idx = idxize(init_loc);
+  for (int iloc = 0; iloc < LOC_NUM; iloc++)
+  {
+    if (iloc == init_loc_idx)
+    {
+      loc_map[iloc] = 0;
+      block_ETA[iloc] = 0; 
+      StoreBlock[iloc] = init_loc_block_p;
+      StoreBlock[iloc]->Adrs = in_addr;
+      StoreBlock[iloc]->set_owner((void **)&StoreBlock[iloc], false);
+      ldim[iloc] = in_ldim;
+      StoreBlock[iloc]->Available->record_to_queue(NULL);
+    }
+    else
+    {
+      StoreBlock[iloc] = NULL;
+      ldim[iloc] = in_dim1;
+      loc_map[iloc] = -42;
+      block_ETA[iloc] = -42; 
+    } 
+  }
+#ifdef DDEBUG
+  lprintf(lvl - 1, "<-----|\n");
+#endif
+}
+
+Tile2D::~Tile2D()
+{
+  delete W_complete; 
+  Tile2D_num--;
+}
+
+long Tile2D::get_chunk_size(int loc_idx)
+{
+  return ldim[loc_idx];
+}
+
+int Tile1D_num = 0;
+
+Tile1D::Tile1D(void * in_addr, int in_dim,
+  int in_inc, int inGrid, dtype_enum dtype_in, CBlock_p init_loc_block_p)
+{
+  short lvl = 3;
+
+  #ifdef DEBUG
+    lprintf(lvl-1, "|-----> Tile1D(%d)::Tile1D(in_addr(%d), %d, %d, %d)\n",
+      Tile1D_num, CoCoGetPtrLoc(in_addr), in_dim, in_inc, inGrid);
+  #endif
+  dtype = dtype_in;
+  dim1 = in_dim;
+  dim2 = 1;
+  GridId1 = inGrid;
+  GridId2 = 1;
+  id = Tile1D_num;
+  Tile1D_num++;
+  short init_loc = CoCoGetPtrLoc(in_addr);
+  short init_loc_idx = idxize(init_loc);
+  for (int iloc = 0; iloc < LOC_NUM; iloc++){
+    if (iloc == init_loc_idx){
+      loc_map[iloc] = 0;
+      StoreBlock[iloc] = init_loc_block_p;
+      StoreBlock[iloc]->Adrs = in_addr;
+      StoreBlock[iloc]->set_owner((void**)&StoreBlock[iloc]);
+      inc[iloc] = in_inc;
+      StoreBlock[iloc]->Available->record_to_queue(NULL);
+    }
+    else{
+      loc_map[iloc] = -42;
+      StoreBlock[iloc] = NULL;
+      inc[iloc] = in_inc;
+    }
+  }
+  #ifdef DEBUG
+  	lprintf(lvl-1, "<-----|\n");
+  #endif
+}
+
+Tile1D::~Tile1D()
+{
+  delete W_complete; 
+  Tile1D_num--;
+}
+
+long Tile1D::get_chunk_size(int loc_idx){
+    return inc[loc_idx];
+}

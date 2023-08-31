@@ -60,14 +60,15 @@ set (CACHING_INSTALL_INC ${CACHING_INSTALL_INC} PARENT_SCOPE)
 add_library(linkmap SHARED
     ${LINKMAP_DIR_SRC}/chain_transfer.cpp
     ${LINKMAP_DIR_SRC}/LinkRoute.cpp
-    ${LINKMAP_DIR_SRC}/Tile1D.cpp
-    ${LINKMAP_DIR_SRC}/Tile2D.cpp
     ${LINKMAP_DIR_SRC}/DataTile.cpp
+    ${LINKMAP_DIR_SRC}/Decomposer.cpp
+    ${BACKEND_LINKMAP_DIR_SRC}/Decom_backend.cpp
 )
 
 target_link_libraries(linkmap ${INTERNAL_LINK_LIB} ${OPENBLAS_LINK} linkmap_helpers caching)
 configure_file(${LINKMAP_DIR_INC}/linkmap.hpp ${LINKMAP_INSTALL_INC}/linkmap.hpp COPYONLY)
 configure_file(${LINKMAP_DIR_INC}/DataTile.hpp ${LINKMAP_INSTALL_INC}/DataTile.hpp COPYONLY)
+configure_file(${LINKMAP_DIR_INC}/Decomposer.hpp ${LINKMAP_INSTALL_INC}/Decomposer.hpp COPYONLY)
 
 ## FIXME: This is a temporary cheat for deployment, must be removed at some point (?). It has to do with TransposeTranslate.
 configure_file(${BACKEND_LINKMAP_DIR_SRC}/backend_wrappers.hpp ${LINKMAP_INSTALL_INC}/backend_wrappers.hpp COPYONLY)
