@@ -7,12 +7,6 @@
 #include "DataTile.hpp"
 #include "backend_wrappers.hpp"
 
-int links_share_bandwidth[LOC_NUM][LOC_NUM][2];
-CQueue_p recv_queues[LOC_NUM][LOC_NUM] = {{NULL}};
-CQueue_p wb_queues[LOC_NUM][LOC_NUM] = {{NULL}};
-CQueue_p exec_queue[LOC_NUM][MAX_BACKEND_L] = {{NULL}};
-int exec_queue_ctr[LOC_NUM] = {-1}; 
-
 int DataTile::get_dtype_size() {
     if (dtype == DOUBLE) return sizeof(double);
     else if (dtype == FLOAT) return sizeof(float);
@@ -22,11 +16,6 @@ int DataTile::get_dtype_size() {
 
 void DataTile::set_loc_idx(int loc_idx, int val){
     loc_map[loc_idx] = val; 
-}
-
-long DataTile::get_chunk_size(int loc_idx){
-    error("Must never be called for parent DataTile class\n");
-    return -42;
 }
 
 short DataTile::get_initial_location() 
@@ -66,7 +55,7 @@ const char* DataTile::get_WRP_string(){
 
 int DataTile::size() { return get_dtype_size()*dim1*dim2;}
 
-void DataTile::fetch(CBlock_p target_block, int priority_loc_id)
+LinkRoute_p DataTile::fetch(CBlock_p target_block, int priority_loc_id, LinkRoute_p in_route)
 {
   if (!(WRP == WR || WRP== RONLY || WRP == WR_LAZY)) error("DataTile::fetch called with WRP = %s\n", get_WRP_string());
   
@@ -77,10 +66,16 @@ void DataTile::fetch(CBlock_p target_block, int priority_loc_id)
     id, GridId1, GridId2, priority_loc_id, printlist(loc_map, LOC_NUM));
 #endif
 
-  LinkRoute_p best_route = new LinkRoute();
-  best_route->starting_hop = 0;
+  LinkRoute_p best_route;
+  if(!in_route){
+    best_route = new LinkRoute();
+    best_route->starting_hop = 0;
+    best_route->optimize(this, 1); // The core of our optimization
+    //fprintf(stderr, "DataTile[%d:%d,%d]::fetch(%d) - Ran this fetch\n", 
+    //  id, GridId1, GridId2, priority_loc_id);
 
-  best_route->optimize(this, 1); // The core of our optimization
+  }
+  else best_route = in_route;
 
 #ifdef DEBUG
   fprintf(stderr, "DataTile[%d:%d,%d]::fetch(%d) WRP = %s, Road = %s \n", id, GridId1, GridId2, 
@@ -102,10 +97,10 @@ void DataTile::fetch(CBlock_p target_block, int priority_loc_id)
         //	tmp->StoreBlock[idxize(best_route->hop_uid_list[1+inter_hop])]->Owner_p = NULL;
         
           block_ptr[inter_hop] = StoreBlock[idxize(best_route->hop_uid_list[inter_hop])] = 
-            Global_Buffer_2D[idxize(best_route->hop_uid_list[inter_hop])]->assign_Cblock(SHARABLE,false);
+            current_SAB[idxize(best_route->hop_uid_list[inter_hop])]->assign_Cblock(SHARABLE,false);
           block_ptr[inter_hop]->set_owner((void**)&StoreBlock[idxize(best_route->hop_uid_list[inter_hop])],false);
         }
-        else block_ptr[inter_hop] = Global_Buffer_2D[idxize(best_route->hop_uid_list[inter_hop])]->assign_Cblock(EXCLUSIVE,false);
+        else block_ptr[inter_hop] = current_SAB[idxize(best_route->hop_uid_list[inter_hop])]->assign_Cblock(EXCLUSIVE,false);
 
     }
     else block_ptr[inter_hop] = target_block;
@@ -155,20 +150,21 @@ void DataTile::fetch(CBlock_p target_block, int priority_loc_id)
 #ifdef DEBUG
 	fprintf(stderr, "<-----|\n");
 #endif
+  return best_route;
 }
 
-void DataTile::operations_complete(CQueue_p assigned_exec_queue){
+void DataTile::operations_complete(CQueue_p assigned_exec_queue, LinkRoute_p* in_route_p, LinkRoute_p* out_route_p){
   short W_master_idx = idxize(W_master);
   if(WR == WRP){
     W_complete->record_to_queue(assigned_exec_queue);
 #ifdef SUBKERNELS_FIRE_WHEN_READY
-    writeback();
+    *out_route_p = writeback(*out_route_p);
 #endif
   }
   else if(WR_LAZY == WRP){
-    CBlock_p temp_block = Global_Buffer_2D[W_master_idx]->assign_Cblock(EXCLUSIVE,false);
+    CBlock_p temp_block = current_SAB[W_master_idx]->assign_Cblock(EXCLUSIVE,false);
     temp_block->set_owner(NULL,false);
-    fetch(temp_block, W_master);
+    *in_route_p = fetch(temp_block, W_master, *in_route_p);
     assigned_exec_queue->wait_for_event(temp_block->Available);
     axpy_backend_in<double>* backend_axpy_wrapper = (axpy_backend_in<double>*) malloc(sizeof(struct axpy_backend_in<double>));
     backend_axpy_wrapper->N = dim1*dim2;
@@ -180,7 +176,7 @@ void DataTile::operations_complete(CQueue_p assigned_exec_queue){
     backend_run_operation(backend_axpy_wrapper, "Daxpy", assigned_exec_queue);
     W_complete->record_to_queue(assigned_exec_queue);
 #ifdef SUBKERNELS_FIRE_WHEN_READY
-    writeback();
+    *out_route_p = writeback(*out_route_p);
 #endif
     CBlock_wrap_p wrap_inval = NULL;
     wrap_inval = (CBlock_wrap_p) malloc (sizeof(struct CBlock_wrap));
@@ -190,7 +186,7 @@ void DataTile::operations_complete(CQueue_p assigned_exec_queue){
   }
 }
 
-void DataTile::writeback(){
+LinkRoute_p DataTile::writeback(LinkRoute_p in_route){
 	short W_master_idx = idxize(W_master);
 	short Writeback_id = get_initial_location(), Writeback_id_idx = idxize(Writeback_id);
 	if (!(WRP == WR || WRP == WR_LAZY))
@@ -202,11 +198,17 @@ void DataTile::writeback(){
 	if (StoreBlock[Writeback_id_idx] == NULL)
 		error("DataTile::writeback -> Tile(%d.[%d,%d]) Storeblock[%d] is NULL\n",
       id, GridId1, GridId2, Writeback_id_idx);
+  LinkRoute_p best_route = NULL;
 	if (W_master_idx == Writeback_id);
 	else{
-    LinkRoute_p best_route = new LinkRoute();
-    best_route->starting_hop = 0;
-    best_route->optimize_reverse(this); // The core of our optimization
+    if(!in_route){
+      //fprintf(stderr, "Tile(%d.[%d,%d]): writeback with in_route = %p\n",
+      //id, GridId1, GridId2, in_route);
+      best_route = new LinkRoute();
+      best_route->starting_hop = 0;
+      best_route->optimize_reverse(this); // The core of our optimization
+    }
+    else best_route = in_route; 
 
   massert(W_master_idx == idxize(best_route->hop_uid_list[0]), 
     "DataTile::writeback error -> W_master_idx [%d] != idxize(best_route->hop_uid_list[0]) [%d]", 
@@ -226,7 +228,7 @@ void DataTile::writeback(){
       best_route->hop_ldim_list[inter_hop] = get_chunk_size(idxize(best_route->hop_uid_list[inter_hop]));  // TODO: This might be wrong for Tile1D + inc!=1
 
       if(inter_hop < best_route->hop_num - 1){
-        block_ptr[inter_hop] = Global_Buffer_2D[idxize(best_route->hop_uid_list[inter_hop])]->
+        block_ptr[inter_hop] = current_SAB[idxize(best_route->hop_uid_list[inter_hop])]->
           assign_Cblock(EXCLUSIVE,false);
           best_route->hop_event_list[inter_hop-1] = block_ptr[inter_hop]->Available;
       }
@@ -260,6 +262,7 @@ void DataTile::writeback(){
 #ifndef ASYNC_ENABLE
 	CoCoSyncCheckErr();
 #endif
+  return best_route; 
 }
 
 /*****************************************************/
@@ -285,7 +288,6 @@ long double DataTile::ETA_fetch_estimate(int target_id){
 
   LinkRoute_p best_route = new LinkRoute();
   best_route->starting_hop = 0;
-
   result = best_route->optimize(this, 0);
 
   set_loc_idx(idxize(target_id), temp_val);
@@ -293,6 +295,40 @@ long double DataTile::ETA_fetch_estimate(int target_id){
   return result; 
 }
 
+void DataTile::reset(void* new_adrr, int new_init_chunk, CBlock_p new_init_loc_block_p){
+  short lvl = 3;
+#ifdef DDEBUG
+  lprintf(lvl - 1, "|-----> DataTile()::reset()\n");
+#endif
+
+  W_master_backend_ctr = -42;
+  fired_times = 0; 
+  short init_loc = CoCoGetPtrLoc(new_adrr);
+  short init_loc_idx = idxize(init_loc);
+  for (int iloc = 0; iloc < LOC_NUM; iloc++)
+  {
+    if (iloc == init_loc_idx)
+    {
+      //loc_map[iloc] = 0;
+      //block_ETA[iloc] = 0; 
+      StoreBlock[iloc] = new_init_loc_block_p;
+      StoreBlock[iloc]->Adrs = new_adrr;
+      StoreBlock[iloc]->set_owner((void **)&StoreBlock[iloc], false);
+      set_chunk_size(iloc, new_init_chunk);
+      StoreBlock[iloc]->Available->record_to_queue(NULL);
+    }
+    else
+    {
+      StoreBlock[iloc] = NULL;
+      //ldim[iloc] = dim1;
+      loc_map[iloc] = -42;
+      //block_ETA[iloc] = -42; 
+    } 
+  }
+#ifdef DDEBUG
+  lprintf(lvl - 1, "<-----|\n");
+#endif
+}
 
 int Tile2D_num = 0;
 
@@ -344,10 +380,7 @@ Tile2D::~Tile2D()
   Tile2D_num--;
 }
 
-long Tile2D::get_chunk_size(int loc_idx)
-{
-  return ldim[loc_idx];
-}
+
 
 int Tile1D_num = 0;
 
@@ -395,6 +428,31 @@ Tile1D::~Tile1D()
   Tile1D_num--;
 }
 
+long DataTile::get_chunk_size(int loc_idx){
+    error("Must never be called for parent DataTile class\n");
+    return -42;
+}
+
+long Tile2D::get_chunk_size(int loc_idx)
+{
+  return ldim[loc_idx];
+}
+
 long Tile1D::get_chunk_size(int loc_idx){
-    return inc[loc_idx];
+  return inc[loc_idx];
+}
+
+void DataTile::set_chunk_size(int loc_idx, long value){
+  error("Must never be called for parent DataTile class\n");
+  return;
+}
+
+
+void Tile2D::set_chunk_size(int loc_idx, long value){
+  ldim[loc_idx] = value; 
+}
+
+
+void Tile1D::set_chunk_size(int loc_idx, long value){
+  inc[loc_idx] = value; 
 }

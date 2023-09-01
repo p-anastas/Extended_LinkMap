@@ -5,9 +5,6 @@
 #include "linkmap.hpp"
 #include "DataTile.hpp"
 
-LinkMap_p final_estimated_linkmap = NULL;
-double final_estimated_link_bw[LOC_NUM][LOC_NUM];
-
 // Naive fetch from initial data loc every time
 // Similar to cuBLASXt
 #ifdef P2P_FETCH_FROM_INIT 
@@ -302,7 +299,7 @@ long double LinkRoute::optimize(void* transfer_tile_wrapped, int update_ETA_flag
           for (int ctr = 0; ctr < hop_num; ctr++) best_list[0][ctr] = templist[ctr];
           tie_list_num = 1;
 #ifdef PDEBUG
-        fprintf(stderr,"DataTile[%d:%d,%d]: New min_ETA(%lf) for route = %s\n", 
+        fprintf(stderr,"DataTile[%d:%d,%d]: New min_ETA(%llf) for route = %s\n", 
           transfer_tile->id, transfer_tile->GridId1, transfer_tile->GridId2, min_ETA, 
           printlist(best_list[tie_list_num-1],hop_num));
 #endif
@@ -312,7 +309,7 @@ long double LinkRoute::optimize(void* transfer_tile_wrapped, int update_ETA_flag
           for (int ctr = 0; ctr < hop_num; ctr++) best_list[tie_list_num][ctr] = templist[ctr];
           tie_list_num++;
 #ifdef PDEBUG
-          fprintf(stderr,"DataTile[%d:%d,%d]: same min_ETA(%lf) for candidate(%d) route = %s\n", 
+          fprintf(stderr,"DataTile[%d:%d,%d]: same min_ETA(%llf) for candidate(%d) route = %s\n", 
             transfer_tile->id, transfer_tile->GridId1, transfer_tile->GridId2, temp_ETA, 
             tie_list_num, printlist(best_list[tie_list_num-1],hop_num));
 #endif
@@ -322,7 +319,7 @@ long double LinkRoute::optimize(void* transfer_tile_wrapped, int update_ETA_flag
       
       int rand_tie_list = int(rand() % tie_list_num); 
 #ifdef PDEBUG
-      fprintf(stderr,"DataTile[%d:%d,%d]: Selected route = %s from %d candidates with ETA = %lf\n", 
+      fprintf(stderr,"DataTile[%d:%d,%d]: Selected route = %s from %d candidates with ETA = %llf\n", 
           transfer_tile->id, transfer_tile->GridId1, transfer_tile->GridId2,
           printlist(best_list[tie_list_num-1],hop_num), tie_list_num, min_ETA);
 #endif

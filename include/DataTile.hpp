@@ -50,14 +50,19 @@ public:
     const char* get_WRP_string();
     int size();
     virtual long get_chunk_size(int loc_idx);
+    virtual void set_chunk_size(int loc_idx, long value);
 
     void set_loc_idx(int loc_idx, int val);
     void set_WRP(WR_properties inprop);
 
-    void fetch(CBlock_p target_block, int priority_loc_id);
-    void operations_complete(CQueue_p assigned_exec_queue);
-    void writeback();
+    LinkRoute_p fetch(CBlock_p target_block, int priority_loc_id, LinkRoute_p in_route);
+    LinkRoute_p writeback(LinkRoute_p in_route);
+    void operations_complete(CQueue_p assigned_exec_queue, 
+        LinkRoute_p* in_route_p, LinkRoute_p* out_route_p);
 
+
+    void reset(void* new_adrr, int new_ldim, CBlock_p new_init_loc_block_p);
+    
     /*****************************************************/
     /// PARALia 2.0 - timed queues and blocks
     void ETA_add_task(long double task_duration, int dev_id);
@@ -79,6 +84,8 @@ public:
     ~Tile1D();
 
     long get_chunk_size(int loc_idx); 
+    void set_chunk_size(int loc_idx, long value);
+
 };
 
 class Tile2D : public DataTile {
@@ -90,7 +97,8 @@ public:
 	//Destructor
 	~Tile2D();
 
-    long get_chunk_size(int loc_idx); 
+    long get_chunk_size(int loc_idx);
+    void set_chunk_size(int loc_idx, long value);
 };
 
 #endif

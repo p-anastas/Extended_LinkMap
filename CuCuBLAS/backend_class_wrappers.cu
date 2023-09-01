@@ -12,8 +12,6 @@
 #include "backend_wrappers.hpp"
 #include "DataCaching.hpp"
 
-int lvl = 1;
-
 int Event_num_device[128] = {0};
 #ifndef UNIHELPER_LOCKFREE_ENABLE
 int unihelper_lock = 0;

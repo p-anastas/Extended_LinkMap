@@ -37,6 +37,7 @@ add_definitions(-DENABLE_LAZY_EVENTS)
 if(${BUILD_BLAS_WRAPPERS_FLAG} EQUAL 1)
     add_library(linkmap_helpers SHARED
     ${LINKMAP_DIR_SRC}/general_utils.cpp
+    ${LINKMAP_DIR_SRC}/extern_definitions.cpp
     ${BACKEND_LINKMAP_DIR_SRC}/backend_util_wrappers.cu
     ${BACKEND_LINKMAP_DIR_SRC}/backend_data_wrappers.cu
     ${BACKEND_LINKMAP_DIR_SRC}/backend_class_wrappers.cu
@@ -46,6 +47,7 @@ if(${BUILD_BLAS_WRAPPERS_FLAG} EQUAL 1)
 else()
     add_library(linkmap_helpers SHARED
     ${LINKMAP_DIR_SRC}/general_utils.cpp
+    ${LINKMAP_DIR_SRC}/extern_definitions.cpp
     ${BACKEND_LINKMAP_DIR_SRC}/backend_util_wrappers.cu
     ${BACKEND_LINKMAP_DIR_SRC}/backend_data_wrappers.cu
     ${BACKEND_LINKMAP_DIR_SRC}/backend_class_wrappers.cu

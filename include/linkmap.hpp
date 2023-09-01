@@ -258,11 +258,6 @@ inline int is_in_list(int elem, int* elem_list, int list_len){ for (int idx = 0;
 		if(elem_list[idx] == elem) return 1; return 0; }
 void translate_binary_to_unit_list(int case_id, int* active_unit_num_p, int* active_unit_id_list);
 
-extern int links_share_bandwidth[LOC_NUM][LOC_NUM][2];
-extern CQueue_p recv_queues[LOC_NUM][LOC_NUM];
-extern CQueue_p wb_queues[LOC_NUM][LOC_NUM];
-extern CQueue_p exec_queue[LOC_NUM][MAX_BACKEND_L];
-extern int exec_queue_ctr[LOC_NUM]; 
 
 /*****************************************************/
 /// LinkMap stuff
@@ -340,6 +335,11 @@ typedef class LinkMap{
 /******************************************************************************/
 }* LinkMap_p;
 
+extern int links_share_bandwidth[LOC_NUM][LOC_NUM][2];
+extern CQueue_p recv_queues[LOC_NUM][LOC_NUM];
+extern CQueue_p wb_queues[LOC_NUM][LOC_NUM];
+extern CQueue_p exec_queue[LOC_NUM][MAX_BACKEND_L];
+extern int exec_queue_ctr[LOC_NUM]; 
 extern double final_estimated_link_bw[LOC_NUM][LOC_NUM];
 extern LinkMap_p final_estimated_linkmap;
 
