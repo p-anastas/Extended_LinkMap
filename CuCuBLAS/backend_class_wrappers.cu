@@ -197,7 +197,7 @@ void CommandQueue::wait_for_event(Event_p Wevent)
 		cudaStream_t stream = *((cudaStream_t*) cqueue_backend_ptr[backend_ctr]);
 		cudaEvent_t cuda_event= *(cudaEvent_t*) Wevent->event_backend_ptr;
 		release_lock();
-		cudaError_t err = cudaStreamWaitEvent(stream, cuda_event, 0); // 0-only parameter = future NVIDIA masterplan?
+		cudaError_t err = cudaStreamWaitEvent(stream, cuda_event, 0);
 		massert(cudaSuccess == err, "CommandQueue::wait_for_event - %s\n", cudaGetErrorString(err));
 	}
 #ifdef UDDEBUG

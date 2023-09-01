@@ -84,7 +84,7 @@ LinkRoute_p DataTile::fetch(CBlock_p target_block, int priority_loc_id, LinkRout
 
 	CBlock_p block_ptr[best_route->hop_num] = {NULL};
   block_ptr[0] = StoreBlock[idxize(best_route->hop_uid_list[0])]; 
-  block_ptr[0]->add_reader();
+  //block_ptr[0]->add_reader();
   best_route->hop_buf_list[0] = block_ptr[0]->Adrs;
   best_route->hop_ldim_list[0] = get_chunk_size(idxize(best_route->hop_uid_list[0]));
 
@@ -120,13 +120,13 @@ LinkRoute_p DataTile::fetch(CBlock_p target_block, int priority_loc_id, LinkRout
   CQueue_p used_queue = best_route->hop_cqueue_list[best_route->hop_num-2];
 
   if(WRP == WR || WRP == W_REDUCE || WRP == WR_LAZY){
-      for(int inter_hop = 1 ; inter_hop < best_route->hop_num - 1; inter_hop++){
+      /*for(int inter_hop = 1 ; inter_hop < best_route->hop_num - 1; inter_hop++){
         CBlock_wrap_p wrap_inval = NULL;
         wrap_inval = (CBlock_wrap_p) malloc (sizeof(struct CBlock_wrap));
         wrap_inval->lockfree = false;
         wrap_inval->CBlock = block_ptr[inter_hop];
         best_route->hop_cqueue_list[inter_hop-1]->add_host_func((void*)&CBlock_RW_INV_wrap, (void*) wrap_inval);
-      }
+      }*/
       loc_map[idxize(best_route->hop_uid_list[best_route->hop_num-1])] = 42;
 
   }
@@ -134,7 +134,7 @@ LinkRoute_p DataTile::fetch(CBlock_p target_block, int priority_loc_id, LinkRout
     for(int inter_hop = 1 ; inter_hop < best_route->hop_num; inter_hop++)
       loc_map[idxize(best_route->hop_uid_list[inter_hop])] = 42; 
   }
-  if (WRP == WR || WRP == W_REDUCE || WRP == WR_LAZY){
+  /*if (WRP == WR || WRP == W_REDUCE || WRP == WR_LAZY){
     CBlock_wrap_p wrap_inval = NULL;
     wrap_inval = (CBlock_wrap_p) malloc (sizeof(struct CBlock_wrap));
     wrap_inval->lockfree = false;
@@ -146,7 +146,7 @@ LinkRoute_p DataTile::fetch(CBlock_p target_block, int priority_loc_id, LinkRout
     wrap_read->CBlock = StoreBlock[idxize(best_route->hop_uid_list[0])];
     wrap_read->lockfree = false;
     used_queue->add_host_func((void*)&CBlock_RR_wrap, (void*) wrap_read);
-  }
+  }*/
 #ifdef DEBUG
 	fprintf(stderr, "<-----|\n");
 #endif
@@ -163,7 +163,7 @@ void DataTile::operations_complete(CQueue_p assigned_exec_queue, LinkRoute_p* in
   }
   else if(WR_LAZY == WRP){
     CBlock_p temp_block = current_SAB[W_master_idx]->assign_Cblock(EXCLUSIVE,false);
-    temp_block->set_owner(NULL,false);
+    //temp_block->set_owner(NULL,false);
     *in_route_p = fetch(temp_block, W_master, *in_route_p);
     assigned_exec_queue->wait_for_event(temp_block->Available);
     axpy_backend_in<double>* backend_axpy_wrapper = (axpy_backend_in<double>*) malloc(sizeof(struct axpy_backend_in<double>));
@@ -178,11 +178,11 @@ void DataTile::operations_complete(CQueue_p assigned_exec_queue, LinkRoute_p* in
 #ifdef SUBKERNELS_FIRE_WHEN_READY
     *out_route_p = writeback(*out_route_p);
 #endif
-    CBlock_wrap_p wrap_inval = NULL;
+    /*CBlock_wrap_p wrap_inval = NULL;
     wrap_inval = (CBlock_wrap_p) malloc (sizeof(struct CBlock_wrap));
     wrap_inval->lockfree = false;
     wrap_inval->CBlock = temp_block;
-    assigned_exec_queue->add_host_func((void*)&CBlock_RW_INV_wrap, (void*) wrap_inval);
+    assigned_exec_queue->add_host_func((void*)&CBlock_RW_INV_wrap, (void*) wrap_inval);*/
   }
 }
 
@@ -251,13 +251,13 @@ LinkRoute_p DataTile::writeback(LinkRoute_p in_route){
   #endif
     FasTCoCoMemcpy2DAsync(best_route, dim1, dim2, get_dtype_size());
 
-    for(int inter_hop = 1 ; inter_hop < best_route->hop_num -1; inter_hop++){
+    /*for(int inter_hop = 1 ; inter_hop < best_route->hop_num -1; inter_hop++){
       CBlock_wrap_p wrap_inval = NULL;
       wrap_inval = (CBlock_wrap_p) malloc (sizeof(struct CBlock_wrap));
       wrap_inval->lockfree = false;
       wrap_inval->CBlock = block_ptr[inter_hop];
       best_route->hop_cqueue_list[inter_hop-1]->add_host_func((void*)&CBlock_RW_INV_wrap, (void*) wrap_inval);
-    }
+    }*/
   }
 #ifndef ASYNC_ENABLE
 	CoCoSyncCheckErr();
