@@ -70,8 +70,8 @@ CommandQueue::CommandQueue(int dev_id_in, int mode)
 	//simultaneous_workers = MAX_BACKEND_L; // Bye bye parallel backends, i am older now (use seperate queues)
 	queue_ETA = 0; 
 	backend_ctr = 0;
-	//if(!mode) 
 	simultaneous_workers = 1; 
+	//if (!mode) simultaneous_workers = 4; 
 #ifdef UDEBUG
 	fprintf(stderr, "[dev_id=%3d] ------- CommandQueue::CommandQueue(): Initializing parallel queue with %d Backend workers\n",
 		dev_id, simultaneous_workers);

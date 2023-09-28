@@ -80,6 +80,7 @@ void FasTCoCoMemcpy2DAsync(LinkRoute_p roadMap, long int rows, long int cols, sh
 #else
 			long int local_cols = cols/buffer_bw_overlap;
 #endif
+			roadMap->hop_cqueue_list[uid_ctr]->request_parallel_backend();
 			for(int steps = 0; steps < buffer_bw_overlap; steps++){
 				if(uid_ctr < roadMap->hop_num - 1) step_events[uid_ctr][steps] = new Event(roadMap->hop_uid_list[uid_ctr+1]);
 #ifdef SPLIT_2D_ROWISE
