@@ -18,6 +18,10 @@ void DataTile::set_loc_idx(int loc_idx, int val){
     loc_map[loc_idx] = val; 
 }
 
+void DataTile::try_set_loc_idx(int loc_idx, int val){
+    if (loc_map[loc_idx] == -42) loc_map[loc_idx] = val; 
+}
+
 short DataTile::get_initial_location() 
 { 
     //TODO: not implemented for multiple initial tile locations
@@ -281,17 +285,17 @@ long double DataTile::ETA_get(int dev_id){
 }
 
 long double DataTile::ETA_fetch_estimate(int target_id){
+  long double result = 0; 
+  if(loc_map[idxize(target_id)]){
+    int temp_val = loc_map[idxize(target_id)];
+    set_loc_idx(idxize(target_id), 2);
 
-  long double result = 1e9; 
-  int temp_val = loc_map[idxize(target_id)];
-  set_loc_idx(idxize(target_id), 2);
+    LinkRoute_p best_route = new LinkRoute();
+    best_route->starting_hop = 0;
+    result = best_route->optimize(this, 0);
 
-  LinkRoute_p best_route = new LinkRoute();
-  best_route->starting_hop = 0;
-  result = best_route->optimize(this, 0);
-
-  set_loc_idx(idxize(target_id), temp_val);
-
+    set_loc_idx(idxize(target_id), temp_val);
+  }
   return result; 
 }
 

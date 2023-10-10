@@ -53,6 +53,8 @@ public:
     virtual void set_chunk_size(int loc_idx, long value);
 
     void set_loc_idx(int loc_idx, int val);
+    /// Same functionality with the exheption that can only set uninitialized values. 
+    void try_set_loc_idx(int loc_idx, int val);
     void set_WRP(WR_properties inprop);
 
     LinkRoute_p fetch(CBlock_p target_block, int priority_loc_id, LinkRoute_p in_route);
