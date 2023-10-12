@@ -10,9 +10,10 @@ typedef class ProblemMetadata* PMD_p;
 PMD_p PMD_cache[PROBLEM_MD_CACHE] = {NULL}; 
 int PMD_cache_entries = 0;
 
-int links_share_bandwidth[LOC_NUM][LOC_NUM][2];
+int links_share_bandwidth[LOC_NUM][LOC_NUM][2], links_share_bandwidth_init = 0;
 LinkMap_p final_estimated_linkmap = NULL;
 double final_estimated_link_bw[LOC_NUM][LOC_NUM];
+int final_link_active[LOC_NUM][LOC_NUM];
 
 CQueue_p recv_queues[LOC_NUM][LOC_NUM] = {{NULL}};
 CQueue_p wb_queues[LOC_NUM][LOC_NUM] = {{NULL}};

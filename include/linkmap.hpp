@@ -279,6 +279,7 @@ typedef class LinkMap{
 		double link_bw_shared_hops[LOC_NUM][LOC_NUM] = {{0}};
 
 		// Number of current link uses. TODO: For runtime optimization, not implemented
+		int link_active[LOC_NUM][LOC_NUM] = {{0}};
 		long long link_uses[LOC_NUM][LOC_NUM] = {{0}};
 
 		// The backend hop route used for each transfer.
@@ -314,33 +315,19 @@ typedef class LinkMap{
 		void update_link_shared_weights(MD_p* list_of_models,
 			int* active_unit_id_list, int active_unit_num);
 		void init_hop_routes(MD_p* list_of_models, int* active_unit_id_list, int unit_num);
-
-/******************************************************************************/
-/************************ Class ESPA Functions ********************************/
-
-		double update_ESPA_ETA_max();
-		double update_ESPA_ETA_mean();
-		double update_ESPA_ETA_mean_and_var();
-		double update_ESPA_ETA_idx(MD_p* unit_modeler_list, int idxi, int idxj);
-		void update_ESPA_ETA_sorted_dec_ids();
-
-		void ESPA_init(MD_p* unit_modeler_list, int* active_unit_id_list,
-			double* active_unit_score, int active_unit_num, int init_type);
-		void ESPA_init_hop_routes(MD_p* unit_modeler_list, int* active_unit_id_list,
-			double* active_unit_score, int active_unit_num, int init_type);
-		double ESPA_predict(MD_p unit_modeler, int T, int* active_unit_id_list,
-			double* active_unit_score, int active_unit_num, int init_type);
-
-		void print_ESPA();
-/******************************************************************************/
 }* LinkMap_p;
 
 extern int links_share_bandwidth[LOC_NUM][LOC_NUM][2];
+extern int links_share_bandwidth_init;
+double shared_bw_unroll(int dest, int src);
+
 extern CQueue_p recv_queues[LOC_NUM][LOC_NUM];
 extern CQueue_p wb_queues[LOC_NUM][LOC_NUM];
 extern CQueue_p exec_queue[LOC_NUM][MAX_BACKEND_L];
 extern int exec_queue_ctr[LOC_NUM]; 
 extern double final_estimated_link_bw[LOC_NUM][LOC_NUM];
+extern int final_link_active[LOC_NUM][LOC_NUM];
+
 extern LinkMap_p final_estimated_linkmap;
 
 #include <execinfo.h>

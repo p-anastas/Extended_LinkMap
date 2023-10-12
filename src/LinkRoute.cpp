@@ -5,6 +5,22 @@
 #include "linkmap.hpp"
 #include "DataTile.hpp"
 
+/// Return the bandwidth of a link taking sharing into account
+double shared_bw_unroll(int dest, int src)
+{
+	long double bw_actual = 0;
+	if (dest == src) error("shared_bw_unroll src = dest = %d\n", src);
+	else if (final_estimated_link_bw[idxize(dest)][idxize(src)] != -1.0)
+		bw_actual = final_estimated_link_bw[idxize(dest)][idxize(src)];
+	else if(links_share_bandwidth[idxize(dest)][idxize(src)][0] != -42 )
+		bw_actual = final_estimated_link_bw[links_share_bandwidth[idxize(dest)][idxize(src)][0]]
+													[links_share_bandwidth[idxize(dest)][idxize(src)][1]];
+	else error("shared_bw_unroll: final_estimated_link_bw[%d][%d] = %.1lf and is not shared.\n", 
+		dest, src, final_estimated_link_bw[idxize(dest)][idxize(src)]);
+
+	return bw_actual;
+}
+
 // Naive fetch from initial data loc every time
 // Similar to cuBLASXt
 #ifdef P2P_FETCH_FROM_INIT 
@@ -61,7 +77,7 @@ void LinkRoute::optimize(void* transfer_tile_wrapped){
     int pos_max = LOC_NUM;
     double link_bw_max = 0;
     for (int pos =0; pos < LOC_NUM; pos++) if (transfer_tile->loc_map[pos] == 0 || transfer_tile->loc_map[pos] == 42){
-        double current_link_bw = final_estimated_link_bw[end_hop_idx][pos];
+        double current_link_bw = shared_bw_unroll(end_hop_idx, pos);
         if (current_link_bw > link_bw_max){
           link_bw_max = current_link_bw;
           pos_max = pos;
@@ -95,7 +111,7 @@ void LinkRoute::optimize(void* transfer_tile_wrapped){
     if (temp == AVAILABLE || temp == SHARABLE || temp == NATIVE ){
       event_status block_status = transfer_tile->StoreBlock[pos]->Available->query_status();
       if(block_status == COMPLETE || block_status == CHECKED || block_status == RECORDED){
-        double current_link_bw = final_estimated_link_bw[end_hop_idx][pos];
+        double current_link_bw = shared_bw_unroll(end_hop_idx, pos);
         if (block_status == RECORDED) current_link_bw-=current_link_bw*FETCH_UNAVAILABLE_PENALTY;
         if (current_link_bw > link_bw_max){
           link_bw_max = current_link_bw;
@@ -211,9 +227,7 @@ void LinkRoute::optimize(void* transfer_tile_wrapped){
         int temp_ctr = 0, prev = idxize(hop_uid_list[0]), templist[hop_num]; 
         for (int x : loc_list){
           templist[temp_ctr++] = x; 
-          //fprintf(stderr,"Checking link[%d,%d] final_estimated_link_bw  = %lf\n", 
-          // idxize(x), prev, final_estimated_link_bw[idxize(x)][prev]);
-          temp_t = 1/final_estimated_link_bw[idxize(x)][prev]*transfer_tile->size()/1e9;
+          temp_t = t_predict_bw_only_shared(x, prev,transfer_tile->size());
           if (temp_t > max_t) max_t = temp_t;
           total_t += temp_t;
           prev = idxize(x);
@@ -260,7 +274,7 @@ long double LinkRoute::optimize(void* transfer_tile_wrapped, int update_ETA_flag
     }
     if (hop_num == 1){
       hop_uid_list[1] = tmp_hop;
-      long double temp_t = 1/final_estimated_link_bw[idxize(hop_uid_list[1])][idxize(hop_uid_list[0])]*transfer_tile->size()/1e9;
+      long double temp_t = transfer_tile->size()/(1e9*shared_bw_unroll(hop_uid_list[1], hop_uid_list[0]));
       if (update_ETA_flag)
         recv_queues[idxize(hop_uid_list[1])][idxize(hop_uid_list[0])]->ETA_add_task(fire_t, temp_t);
       min_ETA = std::max(recv_queues[idxize(hop_uid_list[1])][idxize(hop_uid_list[0])]->ETA_get(), 
@@ -274,9 +288,7 @@ long double LinkRoute::optimize(void* transfer_tile_wrapped, int update_ETA_flag
         int temp_ctr = 0, prev = idxize(hop_uid_list[0]), templist[hop_num]; 
         for (int x : loc_list){
           templist[temp_ctr++] = x; 
-          //fprintf(stderr,"Checking link[%d,%d] final_estimated_link_bw  = %lf\n", 
-          // idxize(x), prev, final_estimated_link_bw[idxize(x)][prev]);
-          temp_t = 1/final_estimated_link_bw[idxize(x)][prev]*transfer_tile->size()/1e9;
+          temp_t = transfer_tile->size()/(1e9*shared_bw_unroll(x, prev));
           if (temp_t > max_t) max_t = temp_t;
           total_t += temp_t;
           prev = idxize(x);
@@ -298,7 +310,7 @@ long double LinkRoute::optimize(void* transfer_tile_wrapped, int update_ETA_flag
           min_ETA = temp_ETA;
           for (int ctr = 0; ctr < hop_num; ctr++) best_list[0][ctr] = templist[ctr];
           tie_list_num = 1;
-#ifdef PDEBUG
+#ifdef DPDEBUG
         fprintf(stderr,"DataTile[%d:%d,%d]: New min_ETA(%llf) for route = %s\n", 
           transfer_tile->id, transfer_tile->GridId1, transfer_tile->GridId2, min_ETA, 
           printlist(best_list[tie_list_num-1],hop_num));
@@ -308,7 +320,7 @@ long double LinkRoute::optimize(void* transfer_tile_wrapped, int update_ETA_flag
         //else if(abs(temp_ETA - min_ETA)/temp_t <= NORMALIZE_NEAR_SPLIT_LIMIT){
           for (int ctr = 0; ctr < hop_num; ctr++) best_list[tie_list_num][ctr] = templist[ctr];
           tie_list_num++;
-#ifdef PDEBUG
+#ifdef DPDEBUG
           fprintf(stderr,"DataTile[%d:%d,%d]: same min_ETA(%llf) for candidate(%d) route = %s\n", 
             transfer_tile->id, transfer_tile->GridId1, transfer_tile->GridId2, temp_ETA, 
             tie_list_num, printlist(best_list[tie_list_num-1],hop_num));
@@ -318,7 +330,7 @@ long double LinkRoute::optimize(void* transfer_tile_wrapped, int update_ETA_flag
       }
       
       int rand_tie_list = int(rand() % tie_list_num); 
-#ifdef PDEBUG
+#ifdef DPDEBUG
       fprintf(stderr,"DataTile[%d:%d,%d]: Selected route = %s from %d candidates with ETA = %llf\n", 
           transfer_tile->id, transfer_tile->GridId1, transfer_tile->GridId2,
           printlist(best_list[tie_list_num-1],hop_num), tie_list_num, min_ETA);
