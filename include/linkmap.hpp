@@ -168,9 +168,13 @@ public:
 
 	CQueue_p hop_cqueue_list[LOC_NUM-1];
 	Event_p hop_event_list[LOC_NUM-1];
-
-	long double optimize(void* transfer_tile_wrapped, int update_ETA_flag); // Target: 0/42 -> 2 [+1] 
-	void optimize_reverse(void* transfer_tile_wrapped); // Target: 42 -> 0 
+	
+	// Target: 0/42 -> 2 [+1] 
+	long double optimize(void* transfer_tile_wrapped, int update_ETA_flag);
+	// Target: 42 -> 0 
+	long double optimize_reverse(void* transfer_tile_wrapped, int update_ETA_flag); 
+	// Target: SRC -> ? -> dest 
+	long double optimize_hop_route(void* transfer_tile_wrapped, int update_ETA_flag, int dest_loc, int src_loc); 
 }* LinkRoute_p;
 
 // A memcpy implementation using multiple units as intermendiate hops for a better transfer bandwidth
@@ -302,6 +306,7 @@ typedef class LinkMap{
 		~LinkMap();
 /******************************************************************************/
 /**************************** Helper Fuctions *********************************/
+		void print_link_active();
 		void print_link_bw();
 		void print_link_bw_shared();
 		void print_link_bw_shared_hops();

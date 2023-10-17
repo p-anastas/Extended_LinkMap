@@ -210,7 +210,7 @@ LinkRoute_p DataTile::writeback(LinkRoute_p in_route){
       //id, GridId1, GridId2, in_route);
       best_route = new LinkRoute();
       best_route->starting_hop = 0;
-      best_route->optimize_reverse(this); // The core of our optimization
+      best_route->optimize_reverse(this, 1); // The core of our optimization
     }
     else best_route = in_route; 
 

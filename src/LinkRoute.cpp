@@ -274,33 +274,38 @@ long double LinkRoute::optimize(void* transfer_tile_wrapped, int update_ETA_flag
     }
     if (hop_num == 1){
       hop_uid_list[1] = tmp_hop;
+#ifdef ENABLE_TRANSFER_HOPS
+      min_ETA = optimize_hop_route(transfer_tile_wrapped, update_ETA_flag, hop_uid_list[1], hop_uid_list[0]);
+#else
       long double temp_t = transfer_tile->size()/(1e9*shared_bw_unroll(hop_uid_list[1], hop_uid_list[0]));
       if (update_ETA_flag)
         recv_queues[idxize(hop_uid_list[1])][idxize(hop_uid_list[0])]->ETA_add_task(fire_t, temp_t);
       min_ETA = std::max(recv_queues[idxize(hop_uid_list[1])][idxize(hop_uid_list[0])]->ETA_get(), 
                 fire_t) + temp_t;
+      hop_num++;
+#endif
     }
     else{
       int best_list[factorial(hop_num)][hop_num]; 
       int flag = 1, tie_list_num = 0;
       while (flag){
         long double max_t = -1, total_t = 0, temp_t;
-        int temp_ctr = 0, prev = idxize(hop_uid_list[0]), templist[hop_num]; 
+        int temp_ctr = 0, prev = hop_uid_list[0], templist[hop_num]; 
         for (int x : loc_list){
           templist[temp_ctr++] = x; 
           temp_t = transfer_tile->size()/(1e9*shared_bw_unroll(x, prev));
           if (temp_t > max_t) max_t = temp_t;
           total_t += temp_t;
-          prev = idxize(x);
+          prev = x;
         }
         temp_t = max_t + (total_t - max_t)/STREAMING_BUFFER_OVERLAP;
         //fprintf(stderr,"Checking location list[%s]: temp_t = %lf\n", printlist(templist,hop_num), temp_t);
-        prev = idxize(hop_uid_list[0]);
+        prev = hop_uid_list[0];
         long double temp_ETA = 0, queue_ETA; 
         for(int ctr = 0; ctr < hop_num; ctr++){
-            queue_ETA = std::max(recv_queues[idxize(templist[ctr])][prev]->ETA_get(), fire_t) + temp_t;
+            queue_ETA = std::max(recv_queues[idxize(templist[ctr])][idxize(prev)]->ETA_get(), fire_t) + temp_t;
             //fprintf(stderr,"queue_ETA [%d -> %d]= %lf (temp_t = %lf)\n", deidxize(prev), templist[ctr], queue_ETA);
-            prev = idxize(templist[ctr]);
+            prev = templist[ctr];
             if(temp_ETA < queue_ETA) temp_ETA = queue_ETA;
             //fprintf(stderr,"Checking location list[%s]: queue_ETA = %lf\n", printlist(templist,hop_num), queue_ETA);
         }
@@ -339,24 +344,88 @@ long double LinkRoute::optimize(void* transfer_tile_wrapped, int update_ETA_flag
         hop_uid_list[ctr+1] = best_list[rand_tie_list][ctr];
         if (update_ETA_flag) recv_queues[idxize(hop_uid_list[ctr+1])][idxize(hop_uid_list[ctr])]->ETA_set(min_ETA);
       }
+      hop_num++;
     }
-    hop_num++;
     return min_ETA; 
 }
 #endif
 
-// TODO: hop writeback transfers not implemented
-void LinkRoute::optimize_reverse(void* transfer_tile_wrapped){
-    DataTile_p transfer_tile = (DataTile_p) transfer_tile_wrapped;
-    hop_num = 2;
-    int start_hop = -42, end_hop = -42;
-    for(int ctr = 0; ctr < LOC_NUM; ctr++)
-    {
-        if(transfer_tile->loc_map[ctr] == 42) start_hop = deidxize(ctr);
-        if(transfer_tile->loc_map[ctr] == 0) end_hop = deidxize(ctr);
-    }
+long double LinkRoute::optimize_reverse(void* transfer_tile_wrapped, int update_ETA_flag){
+  DataTile_p transfer_tile = (DataTile_p) transfer_tile_wrapped;
+  hop_num = 2;
+  long double fire_t = csecond();
+  int start_hop = -42, end_hop = -42;
+  for(int ctr = 0; ctr < LOC_NUM; ctr++)
+  {
+      if(transfer_tile->loc_map[ctr] == 42) start_hop = deidxize(ctr);
+      if(transfer_tile->loc_map[ctr] == 0) end_hop = deidxize(ctr);
+  }
+#ifdef ENABLE_TRANSFER_HOPS
+  long double min_ETA = optimize_hop_route(transfer_tile_wrapped, 0, end_hop, start_hop);
+#else
 	hop_uid_list[0] = start_hop;
-    hop_uid_list[1] = end_hop;
+  hop_uid_list[1] = end_hop;
+  long double temp_t = transfer_tile->size()/(1e9*shared_bw_unroll(hop_uid_list[1], hop_uid_list[0]));
+  if (update_ETA_flag)
+    recv_queues[idxize(hop_uid_list[1])][idxize(hop_uid_list[0])]->ETA_add_task(fire_t, temp_t);
+  long double min_ETA = std::max(recv_queues[idxize(hop_uid_list[1])][idxize(hop_uid_list[0])]->ETA_get(), 
+                fire_t) + temp_t;
+#endif
+  return min_ETA;
 
+}
+
+// BW-based hop optimization
+long double LinkRoute::optimize_hop_route(void* transfer_tile_wrapped, int update_ETA_flag, int dest_loc, int src_loc){
+    DataTile_p transfer_tile = (DataTile_p) transfer_tile_wrapped;
+    if (MAX_ALLOWED_HOPS > 1) error("LinkRoute::optimize_hop_route: Not implemented for MAX_ALLOWED_HOPS = %d\n", MAX_ALLOWED_HOPS);
+    hop_uid_list[0] = src_loc;
+    hop_num = 1;
+    int intermediate_hop = -42;
+    long double min_ETA = 0; 
+    long double fire_t = csecond();
+    double hop_bw_best = shared_bw_unroll(dest_loc,src_loc);
+    for(int uidx = 0; uidx < LOC_NUM; uidx++)
+      if (final_link_active[uidx][idxize(src_loc)] && final_link_active[idxize(dest_loc)][uidx]){
+        double hop_est_bw = (1 - HOP_PENALTY) * std::min(shared_bw_unroll(deidxize(uidx),src_loc), 
+          shared_bw_unroll(dest_loc, deidxize(uidx)));
+        if (hop_est_bw  > hop_bw_best ){
+            hop_bw_best = hop_est_bw;
+            intermediate_hop = deidxize(uidx);
+        }
+      }
+    if (intermediate_hop != -42) hop_uid_list[hop_num++] = intermediate_hop;
+    hop_uid_list[hop_num++] = dest_loc;
+    if(hop_num > 2) fprintf(stderr, "Optimizing transfer %d -> %d : Route = %s\n", 
+      src_loc, dest_loc, printlist<int>(hop_uid_list, hop_num));
+    /// TODO: NOTE - always adding ETA to recv_queue instead of wb. 
+    if (hop_num == 2){
+      long double temp_t = transfer_tile->size()/(1e9*shared_bw_unroll(hop_uid_list[1], hop_uid_list[0]));
+      if (update_ETA_flag)
+        recv_queues[idxize(hop_uid_list[1])][idxize(hop_uid_list[0])]->ETA_add_task(fire_t, temp_t);
+      min_ETA = std::max(recv_queues[idxize(hop_uid_list[1])][idxize(hop_uid_list[0])]->ETA_get(), 
+                fire_t) + temp_t;
+    }
+    else{
+       long double max_t = -1, total_t = 0, temp_t;
+        for (int ctr = 0; ctr < hop_num - 1; ctr++){
+          temp_t = transfer_tile->size()/(1e9*shared_bw_unroll(hop_uid_list[ctr+1], hop_uid_list[ctr]));
+          if (temp_t > max_t) max_t = temp_t;
+          total_t += temp_t;
+        }
+        temp_t = max_t + (total_t - max_t)/STREAMING_BUFFER_OVERLAP;
+        //fprintf(stderr,"Checking location list[%s]: temp_t = %lf\n", printlist(templist,hop_num), temp_t);
+        long double queue_ETA; 
+        for(int ctr = 0; ctr < hop_num - 1; ctr++){
+            queue_ETA = std::max(recv_queues[idxize(hop_uid_list[ctr+1])][idxize(hop_uid_list[ctr])]->ETA_get(), fire_t) + temp_t;
+            //fprintf(stderr,"queue_ETA [%d -> %d]= %lf (temp_t = %lf)\n", deidxize(prev), templist[ctr], queue_ETA);
+            if(min_ETA < queue_ETA) min_ETA = queue_ETA;
+            //fprintf(stderr,"Checking location list[%s]: queue_ETA = %lf\n", printlist(templist,hop_num), queue_ETA);
+        }
+        for(int ctr = 0; ctr < hop_num - 1; ctr++){
+          if (update_ETA_flag) recv_queues[idxize(hop_uid_list[ctr+1])][idxize(hop_uid_list[ctr])]->ETA_set(min_ETA);
+      }
+    }
+    return min_ETA;
 }
 
