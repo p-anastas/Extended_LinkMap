@@ -260,7 +260,7 @@ void LinkRoute::optimize(void* transfer_tile_wrapped){
 #ifdef CHAIN_FETCH_QUEUE_WORKLOAD
 long double LinkRoute::optimize(void* transfer_tile_wrapped, int update_ETA_flag){
     DataTile_p transfer_tile = (DataTile_p) transfer_tile_wrapped;
-    long double min_ETA = DBL_MAX, fire_t = csecond();
+    long double min_ETA = DBL_MAX, tile_t = DBL_MAX/10, fire_t = csecond();
     hop_num = 0;
     std::list<int> loc_list;
     int tmp_hop; 
@@ -310,9 +310,10 @@ long double LinkRoute::optimize(void* transfer_tile_wrapped, int update_ETA_flag
             //fprintf(stderr,"Checking location list[%s]: queue_ETA = %lf\n", printlist(templist,hop_num), queue_ETA);
         }
         //fprintf(stderr,"Checking location list[%s]: temp_ETA = %lf\n", printlist(templist,hop_num), temp_ETA);
-        if(temp_ETA < min_ETA){
+        if(temp_ETA < min_ETA && BANDWIDTH_DIFFERENCE_CUTTOF_RATIO*tile_t >= temp_t){
         //if(abs(temp_ETA - min_ETA)/temp_t > NORMALIZE_NEAR_SPLIT_LIMIT && temp_ETA < min_ETA){
           min_ETA = temp_ETA;
+          tile_t = temp_t;
           for (int ctr = 0; ctr < hop_num; ctr++) best_list[0][ctr] = templist[ctr];
           tie_list_num = 1;
 #ifdef DPDEBUG
@@ -375,6 +376,7 @@ long double LinkRoute::optimize_reverse(void* transfer_tile_wrapped, int update_
 
 }
 
+#ifdef HOP_FETCH_BANDWIDTH
 // BW-based hop optimization
 long double LinkRoute::optimize_hop_route(void* transfer_tile_wrapped, int update_ETA_flag, int dest_loc, int src_loc){
     DataTile_p transfer_tile = (DataTile_p) transfer_tile_wrapped;
@@ -396,8 +398,10 @@ long double LinkRoute::optimize_hop_route(void* transfer_tile_wrapped, int updat
       }
     if (intermediate_hop != -42) hop_uid_list[hop_num++] = intermediate_hop;
     hop_uid_list[hop_num++] = dest_loc;
+#ifdef SDEBUG
     if(hop_num > 2) fprintf(stderr, "Optimizing transfer %d -> %d : Route = %s\n", 
       src_loc, dest_loc, printlist<int>(hop_uid_list, hop_num));
+#endif
     /// TODO: NOTE - always adding ETA to recv_queue instead of wb. 
     if (hop_num == 2){
       long double temp_t = transfer_tile->size()/(1e9*shared_bw_unroll(hop_uid_list[1], hop_uid_list[0]));
@@ -428,4 +432,43 @@ long double LinkRoute::optimize_hop_route(void* transfer_tile_wrapped, int updat
     }
     return min_ETA;
 }
+#endif
 
+#ifdef HOP_FETCH_QUEUE_WORKLOAD
+// ETA-based hop optimization
+long double LinkRoute::optimize_hop_route(void* transfer_tile_wrapped, int update_ETA_flag, int dest_loc, int src_loc){
+    DataTile_p transfer_tile = (DataTile_p) transfer_tile_wrapped;
+    if (MAX_ALLOWED_HOPS > 1) error("LinkRoute::optimize_hop_route: Not implemented for MAX_ALLOWED_HOPS = %d\n", MAX_ALLOWED_HOPS);
+    hop_uid_list[0] = src_loc;
+    hop_num = 1;
+    int intermediate_hop = -42;
+    long double fire_t = csecond();
+    double tile_t = transfer_tile->size()/(1e9*shared_bw_unroll(dest_loc, src_loc));
+    long double min_ETA = std::max(recv_queues[idxize(dest_loc)][idxize(src_loc)]->ETA_get(), fire_t) + tile_t;
+    for(int uidx = 0; uidx < LOC_NUM; uidx++)
+      if (final_link_active[uidx][idxize(src_loc)] && final_link_active[idxize(dest_loc)][uidx]){
+        long double temp_t = (1 + HOP_PENALTY) *std::max(transfer_tile->size()/(1e9*shared_bw_unroll(deidxize(uidx), src_loc)),
+          transfer_tile->size()/(1e9*shared_bw_unroll(dest_loc, deidxize(uidx))));
+        long double total_t = (1 + HOP_PENALTY) * transfer_tile->size()/(1e9*shared_bw_unroll(deidxize(uidx), src_loc)) +
+          transfer_tile->size()/(1e9*shared_bw_unroll(dest_loc, deidxize(uidx))); 
+        temp_t = temp_t + (total_t - temp_t)/STREAMING_BUFFER_OVERLAP;
+        //fprintf(stderr,"Checking location list[%s]: temp_t = %lf\n", printlist(templist,hop_num), temp_t);
+        long double queue_ETA = std::max(std::max(recv_queues[idxize(dest_loc)][uidx]->ETA_get(), fire_t),
+          std::max(recv_queues[uidx][idxize(src_loc)]->ETA_get(), fire_t)) + temp_t; 
+        if(queue_ETA < min_ETA && BANDWIDTH_DIFFERENCE_CUTTOF_RATIO*tile_t >= temp_t){
+          min_ETA = queue_ETA;
+          intermediate_hop = deidxize(uidx);
+        }
+      }
+    if (intermediate_hop != -42) hop_uid_list[hop_num++] = intermediate_hop;
+    hop_uid_list[hop_num++] = dest_loc;
+#ifdef SDEBUG
+    if(hop_num > 2) fprintf(stderr, "Optimizing transfer %d -> %d : Route = %s\n", 
+      src_loc, dest_loc, printlist<int>(hop_uid_list, hop_num));
+#endif
+    /// TODO: NOTE - always adding ETA to recv_queue instead of wb. 
+    for(int ctr = 0; ctr < hop_num - 1; ctr++)
+      if (update_ETA_flag) recv_queues[idxize(hop_uid_list[ctr+1])][idxize(hop_uid_list[ctr])]->ETA_set(min_ETA);
+    return min_ETA;
+}
+#endif
