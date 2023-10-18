@@ -383,20 +383,24 @@ long double LinkRoute::optimize_hop_route(void* transfer_tile_wrapped, int updat
     if (MAX_ALLOWED_HOPS > 1) error("LinkRoute::optimize_hop_route: Not implemented for MAX_ALLOWED_HOPS = %d\n", MAX_ALLOWED_HOPS);
     hop_uid_list[0] = src_loc;
     hop_num = 1;
-    int intermediate_hop = -42;
     long double min_ETA = 0; 
     long double fire_t = csecond();
+    int best_list[hop_num], tie_list_num = 0; 
     double hop_bw_best = shared_bw_unroll(dest_loc,src_loc);
     for(int uidx = 0; uidx < LOC_NUM; uidx++)
       if (final_link_active[uidx][idxize(src_loc)] && final_link_active[idxize(dest_loc)][uidx]){
         double hop_est_bw = (1 - HOP_PENALTY) * std::min(shared_bw_unroll(deidxize(uidx),src_loc), 
           shared_bw_unroll(dest_loc, deidxize(uidx)));
-        if (hop_est_bw  > hop_bw_best ){
-            hop_bw_best = hop_est_bw;
-            intermediate_hop = deidxize(uidx);
+        if (hop_est_bw  > hop_bw_best){
+          hop_bw_best = hop_est_bw;
+          best_list[0] = deidxize(uidx);
+          tie_list_num = 1; 
+        }
+        else if (hop_est_bw  == hop_bw_best){
+          best_list[tie_list_num++] = deidxize(uidx);
         }
       }
-    if (intermediate_hop != -42) hop_uid_list[hop_num++] = intermediate_hop;
+    if (tie_list_num) hop_uid_list[hop_num++] = best_list[int(rand() % tie_list_num)];
     hop_uid_list[hop_num++] = dest_loc;
 #ifdef SDEBUG
     if(hop_num > 2) fprintf(stderr, "Optimizing transfer %d -> %d : Route = %s\n", 
@@ -441,7 +445,7 @@ long double LinkRoute::optimize_hop_route(void* transfer_tile_wrapped, int updat
     if (MAX_ALLOWED_HOPS > 1) error("LinkRoute::optimize_hop_route: Not implemented for MAX_ALLOWED_HOPS = %d\n", MAX_ALLOWED_HOPS);
     hop_uid_list[0] = src_loc;
     hop_num = 1;
-    int intermediate_hop = -42;
+    int best_list[hop_num], tie_list_num = 0; 
     long double fire_t = csecond();
     double tile_t = transfer_tile->size()/(1e9*shared_bw_unroll(dest_loc, src_loc));
     long double min_ETA = std::max(recv_queues[idxize(dest_loc)][idxize(src_loc)]->ETA_get(), fire_t) + tile_t;
@@ -457,10 +461,62 @@ long double LinkRoute::optimize_hop_route(void* transfer_tile_wrapped, int updat
           std::max(recv_queues[uidx][idxize(src_loc)]->ETA_get(), fire_t)) + temp_t; 
         if(queue_ETA < min_ETA && BANDWIDTH_DIFFERENCE_CUTTOF_RATIO*tile_t >= temp_t){
           min_ETA = queue_ETA;
-          intermediate_hop = deidxize(uidx);
+          best_list[0] = deidxize(uidx);
+          tie_list_num = 1; 
+        }
+        else if (queue_ETA == min_ETA && BANDWIDTH_DIFFERENCE_CUTTOF_RATIO*tile_t >= temp_t){
+          best_list[tie_list_num++] = deidxize(uidx);
         }
       }
-    if (intermediate_hop != -42) hop_uid_list[hop_num++] = intermediate_hop;
+    if (tie_list_num) hop_uid_list[hop_num++] = best_list[int(rand() % tie_list_num)];
+    hop_uid_list[hop_num++] = dest_loc;
+#ifdef SDEBUG
+    if(hop_num > 2) fprintf(stderr, "Optimizing transfer %d -> %d : Route = %s\n", 
+      src_loc, dest_loc, printlist<int>(hop_uid_list, hop_num));
+#endif
+    /// TODO: NOTE - always adding ETA to recv_queue instead of wb. 
+    for(int ctr = 0; ctr < hop_num - 1; ctr++)
+      if (update_ETA_flag) recv_queues[idxize(hop_uid_list[ctr+1])][idxize(hop_uid_list[ctr])]->ETA_set(min_ETA);
+    return min_ETA;
+}
+#endif
+
+#ifdef HOP_FETCH_BW_PLUS_ETA
+// BW + ETA-based hop optimization
+long double LinkRoute::optimize_hop_route(void* transfer_tile_wrapped, int update_ETA_flag, int dest_loc, int src_loc){
+    DataTile_p transfer_tile = (DataTile_p) transfer_tile_wrapped;
+    if (MAX_ALLOWED_HOPS > 1) error("LinkRoute::optimize_hop_route: Not implemented for MAX_ALLOWED_HOPS = %d\n", MAX_ALLOWED_HOPS);
+    hop_uid_list[0] = src_loc;
+    hop_num = 1;
+    int best_list[hop_num], tie_list_num = 0; 
+    long double fire_t = csecond();
+    double hop_bw_best = shared_bw_unroll(dest_loc,src_loc);
+    double tile_t = transfer_tile->size()/(1e9*shared_bw_unroll(dest_loc, src_loc));
+    long double min_ETA = std::max(recv_queues[idxize(dest_loc)][idxize(src_loc)]->ETA_get(), fire_t) + tile_t;
+    for(int uidx = 0; uidx < LOC_NUM; uidx++)
+      if (final_link_active[uidx][idxize(src_loc)] && final_link_active[idxize(dest_loc)][uidx]){
+        long double temp_t = (1 + HOP_PENALTY) *std::max(transfer_tile->size()/(1e9*shared_bw_unroll(deidxize(uidx), src_loc)),
+          transfer_tile->size()/(1e9*shared_bw_unroll(dest_loc, deidxize(uidx))));
+        long double total_t = (1 + HOP_PENALTY) * transfer_tile->size()/(1e9*shared_bw_unroll(deidxize(uidx), src_loc)) +
+          transfer_tile->size()/(1e9*shared_bw_unroll(dest_loc, deidxize(uidx))); 
+        temp_t = temp_t + (total_t - temp_t)/STREAMING_BUFFER_OVERLAP;
+        //fprintf(stderr,"Checking location list[%s]: temp_t = %lf\n", printlist(templist,hop_num), temp_t);
+        long double queue_ETA = std::max(std::max(recv_queues[idxize(dest_loc)][uidx]->ETA_get(), fire_t),
+          std::max(recv_queues[uidx][idxize(src_loc)]->ETA_get(), fire_t)) + temp_t;
+        double hop_est_bw = (1 - HOP_PENALTY) * std::min(shared_bw_unroll(deidxize(uidx),src_loc), 
+          shared_bw_unroll(dest_loc, deidxize(uidx)));
+        if(hop_est_bw > hop_bw_best || ( hop_est_bw == hop_bw_best && 
+          queue_ETA < min_ETA)){
+          min_ETA = queue_ETA;
+          hop_bw_best = hop_est_bw; 
+          best_list[0] = deidxize(uidx);
+          tie_list_num = 1; 
+        }
+        else if (hop_est_bw == hop_bw_best && queue_ETA == min_ETA){
+          best_list[tie_list_num++] = deidxize(uidx);
+        }
+      }
+    if (tie_list_num) hop_uid_list[hop_num++] = best_list[int(rand() % tie_list_num)];
     hop_uid_list[hop_num++] = dest_loc;
 #ifdef SDEBUG
     if(hop_num > 2) fprintf(stderr, "Optimizing transfer %d -> %d : Route = %s\n", 
