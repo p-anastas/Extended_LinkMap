@@ -385,7 +385,7 @@ long double LinkRoute::optimize_hop_route(void* transfer_tile_wrapped, int updat
     hop_num = 1;
     long double min_ETA = 0; 
     long double fire_t = csecond();
-    int best_list[hop_num], tie_list_num = 0; 
+    int best_list[LOC_NUM], tie_list_num = 0; 
     double hop_bw_best = shared_bw_unroll(dest_loc,src_loc);
     for(int uidx = 0; uidx < LOC_NUM; uidx++)
       if (final_link_active[uidx][idxize(src_loc)] && final_link_active[idxize(dest_loc)][uidx]){
@@ -445,7 +445,7 @@ long double LinkRoute::optimize_hop_route(void* transfer_tile_wrapped, int updat
     if (MAX_ALLOWED_HOPS > 1) error("LinkRoute::optimize_hop_route: Not implemented for MAX_ALLOWED_HOPS = %d\n", MAX_ALLOWED_HOPS);
     hop_uid_list[0] = src_loc;
     hop_num = 1;
-    int best_list[hop_num], tie_list_num = 0; 
+    int best_list[LOC_NUM], tie_list_num = 0; 
     long double fire_t = csecond();
     double tile_t = transfer_tile->size()/(1e9*shared_bw_unroll(dest_loc, src_loc));
     long double min_ETA = std::max(recv_queues[idxize(dest_loc)][idxize(src_loc)]->ETA_get(), fire_t) + tile_t;
@@ -488,7 +488,7 @@ long double LinkRoute::optimize_hop_route(void* transfer_tile_wrapped, int updat
     if (MAX_ALLOWED_HOPS > 1) error("LinkRoute::optimize_hop_route: Not implemented for MAX_ALLOWED_HOPS = %d\n", MAX_ALLOWED_HOPS);
     hop_uid_list[0] = src_loc;
     hop_num = 1;
-    int best_list[hop_num], tie_list_num = 0; 
+    int best_list[LOC_NUM], tie_list_num = 0; 
     long double fire_t = csecond();
     double hop_bw_best = shared_bw_unroll(dest_loc,src_loc);
     double tile_t = transfer_tile->size()/(1e9*shared_bw_unroll(dest_loc, src_loc));

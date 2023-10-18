@@ -286,21 +286,10 @@ typedef class LinkMap{
 		int link_active[LOC_NUM][LOC_NUM] = {{0}};
 		long long link_uses[LOC_NUM][LOC_NUM] = {{0}};
 
-		// The backend hop route used for each transfer.
-		short link_hop_route[LOC_NUM][LOC_NUM][MAX_ALLOWED_HOPS][MAX_HOP_ROUTES] = {{{{0}}}};
-		// The number of intermediate hops between unit memories each link utilizes.
-		short link_hop_num[LOC_NUM][LOC_NUM] = {{0}};
-
-		// The number of different available routes for each link. TODO: Not implemented
-		short link_hop_route_num[LOC_NUM][LOC_NUM] = {{0}};
-
-		/// ESPA stuff
-		long double ESPA_bytes[LOC_NUM][LOC_NUM] = {{0}};
-		double ESPA_ETA[LOC_NUM][LOC_NUM] = {{0}};
-		int ESPA_ETA_sorted_dec_ids[LOC_NUM*LOC_NUM] = {0};
-
-		double ESPA_ETA_max, ESPA_ETA_mean, ESPA_ETA_var = 0;
-
+		// TODO: These are not currently utilized, but they are 'free' to obtain so...
+		int link_hop_num[LOC_NUM][LOC_NUM];
+		int link_hop_route_num[LOC_NUM][LOC_NUM];
+		int link_hop_route[LOC_NUM][LOC_NUM][MAX_ALLOWED_HOPS][LOC_NUM]; 
 /********************** Initialization/Modification ***************************/
 		LinkMap();
 		~LinkMap();
@@ -319,7 +308,9 @@ typedef class LinkMap{
 		void update_link_weights(MD_p* list_of_models, int T);
 		void update_link_shared_weights(MD_p* list_of_models,
 			int* active_unit_id_list, int active_unit_num);
-		void init_hop_routes(MD_p* list_of_models, int* active_unit_id_list, int unit_num);
+		void update_link_hop_shared_weights(MD_p* list_of_models,
+			int* active_unit_id_list, int active_unit_num);
+		double linkmap_shared_bw_unroll(int dest, int src);
 }* LinkMap_p;
 
 extern int links_share_bandwidth[LOC_NUM][LOC_NUM][2];
