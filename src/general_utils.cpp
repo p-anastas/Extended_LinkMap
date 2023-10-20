@@ -301,6 +301,26 @@ long long sgemm_bytes(long int M, long int N, long int K){
 }
 */
 
+int normal_equal(double n1, double n2){
+	if(n1*(1+NORMALIZE_NEAR_SPLIT_LIMIT)<=n2 && n1*(1-NORMALIZE_NEAR_SPLIT_LIMIT)>=n2) return 1;
+	return 0; 
+}
+
+int normal_less(double n1, double n2){
+	if(n1 < n2 && n1*(1-NORMALIZE_NEAR_SPLIT_LIMIT)<n2) return 1;
+	return 0; 
+}
+int normal_larger(double n1, double n2){
+	if(n1 > n2 && n1*(1-NORMALIZE_NEAR_SPLIT_LIMIT)>n2) return 1;
+	return 0; 
+}
+int normal_lessequal(double n1, double n2){
+	return normal_equal(n1, n2) + normal_less(n1, n2); 
+}
+int normal_largerequal(double n1, double n2){
+	return normal_equal(n1, n2) + normal_larger(n1, n2); 
+}
+
 void CoCoSetTimerAsync(void* wrapped_timer_Ptr){
   double* timer = (double*) wrapped_timer_Ptr;
   *timer = csecond();

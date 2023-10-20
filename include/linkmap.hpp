@@ -262,6 +262,12 @@ inline int is_in_list(int elem, int* elem_list, int list_len){ for (int idx = 0;
 		if(elem_list[idx] == elem) return 1; return 0; }
 void translate_binary_to_unit_list(int case_id, int* active_unit_num_p, int* active_unit_id_list);
 
+/// double/float arethmetic comparrison that compares based on NORMALIZE_NEAR_SPLIT_LIMIT minimum difference.
+int normal_equal(double n1, double n2);
+int normal_less(double n1, double n2);
+int normal_larger(double n1, double n2);
+int normal_lessequal(double n1, double n2);
+int normal_largerequal(double n1, double n2);
 
 /*****************************************************/
 /// LinkMap stuff
