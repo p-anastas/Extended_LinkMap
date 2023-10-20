@@ -316,7 +316,10 @@ typedef class LinkMap{
 			int* active_unit_id_list, int active_unit_num);
 		void update_link_hop_shared_weights(MD_p* list_of_models,
 			int* active_unit_id_list, int active_unit_num);
+		/// Return BW src -> dest after checking if active etc
 		double linkmap_shared_bw_unroll(int dest, int src);
+		/// Return 1 if the link under suspicion causes ANY slowdown (> 1.0 + NORMALIZE_NEAR_SPLIT_LIMIT) to active links
+		int link_causes_slowdowns(MD_p sus_link_modeler, int sus_dest, int sus_src);
 }* LinkMap_p;
 
 extern int links_share_bandwidth[LOC_NUM][LOC_NUM][2];
