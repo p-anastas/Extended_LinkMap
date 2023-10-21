@@ -518,10 +518,10 @@ long double LinkRoute::optimize_hop_route(void* transfer_tile_wrapped, int updat
       }
     if (tie_list_num) hop_uid_list[hop_num++] = best_list[int(rand() % tie_list_num)];
     hop_uid_list[hop_num++] = dest_loc;
-#ifdef SDEBUG
+//#ifdef SDEBUG
     if(hop_num > 2) fprintf(stderr, "Optimizing transfer %d -> %d : Route = %s\n", 
       src_loc, dest_loc, printlist<int>(hop_uid_list, hop_num));
-#endif
+//#endif
     /// TODO: NOTE - always adding ETA to recv_queue instead of wb. 
     for(int ctr = 0; ctr < hop_num - 1; ctr++)
       if (update_ETA_flag) recv_queues[idxize(hop_uid_list[ctr+1])][idxize(hop_uid_list[ctr])]->ETA_set(min_ETA);
