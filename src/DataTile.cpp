@@ -302,7 +302,7 @@ long double DataTile::ETA_fetch_estimate(int target_id){
 void DataTile::reset(void* new_adrr, int new_init_chunk, CBlock_p new_init_loc_block_p){
   short lvl = 3;
 #ifdef DDEBUG
-  lprintf(lvl - 1, "|-----> DataTile()::reset()\n");
+  lprintf(lvl - 1, "|-----> DataTile()::reset(%p, %d)\n", new_adrr, new_init_chunk);
 #endif
 
   W_master_backend_ctr = -42;
@@ -341,8 +341,8 @@ Tile2D::Tile2D(void *in_addr, int in_dim1, int in_dim2,
 {
   short lvl = 3;
 #ifdef DDEBUG
-  lprintf(lvl - 1, "|-----> Tile2D(%d)::Tile2D(in_addr(%d),%d,%d,%d, %d, %d)\n",
-          Tile2D_num, CoCoGetPtrLoc(in_addr), in_dim1, in_dim2, in_ldim, inGrid1, inGrid2);
+  lprintf(lvl - 1, "|-----> Tile2D(%d)::Tile2D(in_addr(%d) = %p,%d,%d,%d, %d, %d)\n",
+          Tile2D_num, CoCoGetPtrLoc(in_addr), in_addr, in_dim1, in_dim2, in_ldim, inGrid1, inGrid2);
 #endif
   dtype = dtype_in;
   dim1 = in_dim1;
