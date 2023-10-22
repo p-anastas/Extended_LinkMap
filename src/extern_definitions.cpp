@@ -19,7 +19,11 @@ CQueue_p recv_queues[LOC_NUM][LOC_NUM] = {{NULL}};
 CQueue_p wb_queues[LOC_NUM][LOC_NUM] = {{NULL}};
 
 CQueue_p exec_queue[LOC_NUM][MAX_BACKEND_L] = {{NULL}};
+CQueue_p reduce_queue[LOC_NUM][REDUCE_WORKERS_PERDEV] = {{NULL}};
+int reduce_loc = 0;
+
 int exec_queue_ctr[LOC_NUM] = {-1}; 
+int reduce_queue_ctr[LOC_NUM] = {-1}; 
 
 
 

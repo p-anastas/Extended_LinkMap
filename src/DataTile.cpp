@@ -162,7 +162,7 @@ void DataTile::operations_complete(CQueue_p assigned_exec_queue, LinkRoute_p* in
   if(WR == WRP){
     W_complete->record_to_queue(assigned_exec_queue);
 #ifdef SUBKERNELS_FIRE_WHEN_READY
-    *out_route_p = writeback(*out_route_p);
+    *out_route_p = writeback(NULL, *out_route_p);
 #endif
   }
   else if(WR_LAZY == WRP){
@@ -180,8 +180,57 @@ void DataTile::operations_complete(CQueue_p assigned_exec_queue, LinkRoute_p* in
     backend_run_operation(backend_axpy_wrapper, "Daxpy", assigned_exec_queue);
     W_complete->record_to_queue(assigned_exec_queue);
 #ifdef SUBKERNELS_FIRE_WHEN_READY
-    *out_route_p = writeback(*out_route_p);
+    *out_route_p = writeback(NULL, *out_route_p);
 #endif
+    /*CBlock_wrap_p wrap_inval = NULL;
+    wrap_inval = (CBlock_wrap_p) malloc (sizeof(struct CBlock_wrap));
+    wrap_inval->lockfree = false;
+    wrap_inval->CBlock = temp_block;
+    assigned_exec_queue->add_host_func((void*)&CBlock_RW_INV_wrap, (void*) wrap_inval);*/
+  }
+  else if(W_REDUCE == WRP){
+    W_complete->record_to_queue(assigned_exec_queue);
+	  short Writeback_id = get_initial_location(), Writeback_id_idx = idxize(Writeback_id);
+    CBlock_p temp_block = current_SAB[Writeback_id_idx]->assign_Cblock(EXCLUSIVE,false);
+    loc_map[W_master_idx] = 42;
+    long int wb_chunk_size = get_chunk_size(Writeback_id_idx);
+    set_chunk_size(Writeback_id_idx, dim2);
+#ifdef SUBKERNELS_FIRE_WHEN_READY
+    *out_route_p = writeback(temp_block, *out_route_p);
+#endif
+    set_chunk_size(Writeback_id_idx, wb_chunk_size);
+    //temp_block->set_owner(NULL,false);
+    if (reduce_queue_ctr[W_master_idx] == REDUCE_WORKERS_PERDEV - 1) reduce_queue_ctr[W_master_idx] = 0; 
+    else reduce_queue_ctr[W_master_idx]++;
+    CQueue_p WB_exec_queue = reduce_queue[W_master_idx][reduce_queue_ctr[W_master_idx]]; //[W_master_backend_ctr];
+    WB_exec_queue->wait_for_event(temp_block->Available);
+    axpby_backend_in<double>* backend_axpby_wrapper[dim2]= {NULL};
+    double** slide_addr_x = (double**) malloc(dim2*sizeof(double*)), 
+    **slide_addr_y = (double**)  malloc(dim2*sizeof(double*));
+    //temp_block->Available->sync_barrier();
+    for(int daxpy_dims = 0; daxpy_dims < dim2; daxpy_dims++){
+      //fprintf(stderr, "Itter %d\n", daxpy_dims);
+      backend_axpby_wrapper[daxpy_dims] = (axpby_backend_in<double>*) malloc(sizeof(struct axpby_backend_in<double>));
+      backend_axpby_wrapper[daxpy_dims]->N = dim1;
+      backend_axpby_wrapper[daxpy_dims]->incx = 1;
+      backend_axpby_wrapper[daxpy_dims]->incy = 1;
+      backend_axpby_wrapper[daxpy_dims]->alpha = 1.0;
+      backend_axpby_wrapper[daxpy_dims]->beta = reduce_mult;
+      backend_axpby_wrapper[daxpy_dims]->dev_id = Writeback_id;
+      slide_addr_x[daxpy_dims] = &(((double*)temp_block->Adrs)[daxpy_dims*dim1]);
+      slide_addr_y[daxpy_dims] = &(((double*)StoreBlock[Writeback_id_idx]->Adrs)[daxpy_dims*get_chunk_size(Writeback_id_idx)]);
+      backend_axpby_wrapper[daxpy_dims]->x = (void**) &(slide_addr_x[daxpy_dims]);
+      backend_axpby_wrapper[daxpy_dims]->y = (void**) &(slide_addr_y[daxpy_dims]);
+      backend_run_operation(backend_axpby_wrapper[daxpy_dims], "Daxpby", WB_exec_queue);
+    //cblas_daxpby(backend_axpby_wrapper[daxpy_dims]->N, backend_axpby_wrapper[daxpy_dims]->alpha,
+    //  (double*) *backend_axpby_wrapper[daxpy_dims]->x, backend_axpby_wrapper[daxpy_dims]->incx, 
+    //  backend_axpby_wrapper[daxpy_dims]->beta,
+    //  (double*)*backend_axpby_wrapper[daxpy_dims]->y, backend_axpby_wrapper[daxpy_dims]->incy);
+    //
+    }
+    W_complete = new Event(Writeback_id);
+    W_complete->record_to_queue(WB_exec_queue);
+    //WB_exec_queue->sync_barrier();
     /*CBlock_wrap_p wrap_inval = NULL;
     wrap_inval = (CBlock_wrap_p) malloc (sizeof(struct CBlock_wrap));
     wrap_inval->lockfree = false;
@@ -190,17 +239,18 @@ void DataTile::operations_complete(CQueue_p assigned_exec_queue, LinkRoute_p* in
   }
 }
 
-LinkRoute_p DataTile::writeback(LinkRoute_p in_route){
+LinkRoute_p DataTile::writeback(CBlock_p WB_block_candidate, LinkRoute_p in_route){
 	short W_master_idx = idxize(W_master);
 	short Writeback_id = get_initial_location(), Writeback_id_idx = idxize(Writeback_id);
-	if (!(WRP == WR || WRP == WR_LAZY))
+  CBlock_p WB_block = (WB_block_candidate) ? WB_block_candidate : StoreBlock[Writeback_id_idx];
+	if (!(WRP == WR || WRP == WR_LAZY || WRP == W_REDUCE))
     error("DataTile::writeback -> Tile(%d.[%d,%d]) has WRP = %s\n",
 			id, GridId1, GridId2, WRP);
 	if (StoreBlock[W_master_idx] == NULL || StoreBlock[W_master_idx]->State == INVALID)
 		error("DataTile::writeback -> Tile(%d.[%d,%d]) Storeblock[%d] is NULL\n",
 			id, GridId1, GridId2, W_master_idx);
-	if (StoreBlock[Writeback_id_idx] == NULL)
-		error("DataTile::writeback -> Tile(%d.[%d,%d]) Storeblock[%d] is NULL\n",
+	if (WB_block == NULL)
+		error("DataTile::writeback -> Tile(%d.[%d,%d]) WB_block at %d is NULL\n",
       id, GridId1, GridId2, Writeback_id_idx);
   LinkRoute_p best_route = NULL;
 	if (W_master_idx == Writeback_id);
@@ -237,7 +287,7 @@ LinkRoute_p DataTile::writeback(LinkRoute_p in_route){
           best_route->hop_event_list[inter_hop-1] = block_ptr[inter_hop]->Available;
       }
       else{
-        block_ptr[inter_hop] = StoreBlock[Writeback_id_idx];
+        block_ptr[inter_hop] = WB_block;
         best_route->hop_event_list[inter_hop-1] = NULL;
       }
   

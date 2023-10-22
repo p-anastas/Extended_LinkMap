@@ -328,8 +328,14 @@ double shared_bw_unroll(int dest, int src);
 
 extern CQueue_p recv_queues[LOC_NUM][LOC_NUM];
 extern CQueue_p wb_queues[LOC_NUM][LOC_NUM];
+
 extern CQueue_p exec_queue[LOC_NUM][MAX_BACKEND_L];
 extern int exec_queue_ctr[LOC_NUM]; 
+
+extern CQueue_p reduce_queue[LOC_NUM][REDUCE_WORKERS_PERDEV];
+extern int reduce_queue_ctr[LOC_NUM]; 
+extern int reduce_loc; 
+
 extern double final_estimated_link_bw[LOC_NUM][LOC_NUM];
 extern int final_link_active[LOC_NUM][LOC_NUM];
 

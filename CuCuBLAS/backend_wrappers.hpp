@@ -38,6 +38,14 @@ public:
 	short dev_id;
 };
 
+template<typename VALUETYPE> class axpby_backend_in{
+public:
+	int N, incx, incy;
+	VALUETYPE alpha, beta;
+	void **x, **y;
+	short dev_id;
+};
+
 template<typename VALUETYPE> class dot_backend_in{
 public:
 	int N, incx, incy;
@@ -125,6 +133,7 @@ void CoCoFreeAllocAsync(void* backend_data);
 void cublas_wrap_ddot(void* backend_data, void* queue_wrap_p);
 void cublas_wrap_daxpy(void* backend_data, void* queue_wrap_p);
 void cublas_wrap_saxpy(void* backend_data, void* queue_wrap_p);
+void cublas_wrap_daxpby(void* backend_data, void* queue_wrap_p);
 
 void cublas_wrap_dgemv(void* backend_data, void* queue_wrap_p);
 
@@ -134,6 +143,8 @@ void cublas_wrap_sgemm(void* backend_data, void* queue_wrap_p);
 void cblas_wrap_ddot(void* backend_data);
 void cblas_wrap_daxpy(void* backend_data);
 void cblas_wrap_saxpy(void* backend_data);
+void cblas_wrap_daxpby(void* backend_data);
+
 
 void cblas_wrap_dgemv(void* backend_data);
 

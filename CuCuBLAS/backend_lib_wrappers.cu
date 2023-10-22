@@ -87,6 +87,12 @@ void backend_run_operation(void* backend_data, const char* opname, CQueue_p run_
     //else
     error("backend_run_operation(sdot): Not implemented for dev_id = %d\n", ptr_ker_translate->dev_id);
   }
+  else if(!strcmp(opname, "Daxpby")){
+    axpby_backend_in<double>* ptr_ker_translate = (axpby_backend_in<double>*) backend_data;
+    if(ptr_ker_translate->dev_id == -1) run_queue->add_host_func((void*)&cblas_wrap_daxpby, backend_data);
+    else if(ptr_ker_translate->dev_id >= 0) cublas_wrap_daxpby(backend_data, run_queue);
+    else error("backend_run_operation(axpy,double): Not implemented for dev_id = %d\n", ptr_ker_translate->dev_id);
+  }
   else error("backend_run_operation: unkown/not implemented opname=%s\n", opname);
 }
 

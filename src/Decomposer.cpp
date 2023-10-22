@@ -194,16 +194,22 @@ void Decomposer::DestroyTileMap(){
 }
 
 void Decomposer::WBTileMap(){
+  if (Tile_map[0]->WRP == W_REDUCE) error("Decomposer::WBTileMap not implemented for ALGO_WREDUCE\n");
   for (int itt1 = 0; itt1 < GridSz1; itt1++)
     for (int itt2 = 0 ; itt2 < GridSz2; itt2++)
       // TODO: this does not reuse pathing (for !SK_FIRE_WHEN_READY)
-      Tile_map[itt1*GridSz2 + itt2]->writeback(NULL);
+      Tile_map[itt1*GridSz2 + itt2]->writeback(NULL, NULL);
 }
 
 void Decomposer::SyncTileMap(){
   for (int itt1 = 0; itt1 < GridSz1; itt1++)
     for (int itt2 = 0 ; itt2 < GridSz2; itt2++){
       Tile_map[itt1*GridSz2 + itt2]->W_complete->sync_barrier();
+      if(!strcmp(OUTPUT_ALGO_MODE,"ALGO_WREDUCE")) Tile_map[itt1*GridSz2 + itt2]->
+        StoreBlock[idxize(Tile_map[itt1*GridSz2 + itt2]->get_initial_location())]->Available->sync_barrier();
+      //if(!strcmp(OUTPUT_ALGO_MODE,"ALGO_WREDUCE")) for (int devi = 0; devi < LOC_NUM; devi++)
+      //for (int ctri = 0; ctri < REDUCE_WORKERS_PERDEV; ctri++) 
+      //if(reduce_queue[devi] && reduce_queue[devi][ctri]) reduce_queue[devi][ctri]->sync_barrier();
       //Tile_map[itt1*GridSz2 + itt2]->StoreBlock[idxize(Tile_map[itt1*GridSz2 + itt2]->
       //get_initial_location())]->Available->sync_barrier();
     }

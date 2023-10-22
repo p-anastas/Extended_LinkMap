@@ -58,7 +58,7 @@ public:
     void set_WRP(WR_properties inprop);
 
     LinkRoute_p fetch(CBlock_p target_block, int priority_loc_id, LinkRoute_p in_route);
-    LinkRoute_p writeback(LinkRoute_p in_route);
+    LinkRoute_p writeback(CBlock_p WB_block, LinkRoute_p in_route);
     void operations_complete(CQueue_p assigned_exec_queue, 
         LinkRoute_p* in_route_p, LinkRoute_p* out_route_p);
 
