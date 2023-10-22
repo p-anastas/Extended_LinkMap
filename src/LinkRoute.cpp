@@ -388,7 +388,7 @@ long double LinkRoute::optimize_hop_route(void* transfer_tile_wrapped, int updat
     int best_list[LOC_NUM], tie_list_num = 0; 
     double hop_bw_best = shared_bw_unroll(dest_loc,src_loc);
     for(int uidx = 0; uidx < LOC_NUM; uidx++)
-      if (final_link_active[uidx][idxize(src_loc)] && final_link_active[idxize(dest_loc)][uidx]){
+      if (final_link_active[uidx][idxize(src_loc)]==2 && final_link_active[idxize(dest_loc)][uidx]){
         double hop_est_bw = (1 - HOP_PENALTY) * std::min(shared_bw_unroll(deidxize(uidx),src_loc), 
           shared_bw_unroll(dest_loc, deidxize(uidx)));
         if (hop_est_bw  > hop_bw_best){
@@ -450,7 +450,7 @@ long double LinkRoute::optimize_hop_route(void* transfer_tile_wrapped, int updat
     double tile_t = transfer_tile->size()/(1e9*shared_bw_unroll(dest_loc, src_loc));
     long double min_ETA = std::max(recv_queues[idxize(dest_loc)][idxize(src_loc)]->ETA_get(), fire_t) + tile_t;
     for(int uidx = 0; uidx < LOC_NUM; uidx++)
-      if (final_link_active[uidx][idxize(src_loc)] && final_link_active[idxize(dest_loc)][uidx]){
+      if (final_link_active[uidx][idxize(src_loc)]==2 && final_link_active[idxize(dest_loc)][uidx]){
         long double temp_t = (1 + HOP_PENALTY) *std::max(transfer_tile->size()/(1e9*shared_bw_unroll(deidxize(uidx), src_loc)),
           transfer_tile->size()/(1e9*shared_bw_unroll(dest_loc, deidxize(uidx))));
         long double total_t = (1 + HOP_PENALTY) * transfer_tile->size()/(1e9*shared_bw_unroll(deidxize(uidx), src_loc)) +
@@ -494,7 +494,7 @@ long double LinkRoute::optimize_hop_route(void* transfer_tile_wrapped, int updat
     double tile_t = transfer_tile->size()/(1e9*shared_bw_unroll(dest_loc, src_loc));
     long double min_ETA = std::max(recv_queues[idxize(dest_loc)][idxize(src_loc)]->ETA_get(), fire_t) + tile_t;
     for(int uidx = 0; uidx < LOC_NUM; uidx++)
-      if (final_link_active[uidx][idxize(src_loc)] && final_link_active[idxize(dest_loc)][uidx]){
+      if (final_link_active[uidx][idxize(src_loc)]==2 && final_link_active[idxize(dest_loc)][uidx]){
         long double temp_t = (1 + HOP_PENALTY) *std::max(transfer_tile->size()/(1e9*shared_bw_unroll(deidxize(uidx), src_loc)),
           transfer_tile->size()/(1e9*shared_bw_unroll(dest_loc, deidxize(uidx))));
         long double total_t = (1 + HOP_PENALTY) * transfer_tile->size()/(1e9*shared_bw_unroll(deidxize(uidx), src_loc)) +
