@@ -14,8 +14,6 @@
 long int CoCoGetMaxDimSqAsset2D(short Asset2DNum, short dsize, long int step, short loc){
 	size_t free_cuda_mem, max_cuda_mem;
 	int prev_loc; cudaGetDevice(&prev_loc);
-    /// TODO: Can this ever happen in a healthy scenario?
-    //if (prev_loc != loc) warning("CoCoMalloc: Malloc'ed memory in other device (Previous device: %d, Malloc in: %d)\n", prev_loc, loc);
     cudaSetDevice(loc);
 	massert(cudaSuccess == cudaMemGetInfo(&free_cuda_mem, &max_cuda_mem), "backend_get_max_dim_sq_Asset2D: cudaMemGetInfo failed");
 
@@ -28,8 +26,6 @@ long int CoCoGetMaxDimSqAsset2D(short Asset2DNum, short dsize, long int step, sh
 long int CoCoGetMaxDimAsset1D(short Asset1DNum, short dsize, long int step, short loc){
 	size_t free_cuda_mem, max_cuda_mem;
 	int prev_loc; cudaGetDevice(&prev_loc);
-    /// TODO: Can this ever happen in a healthy scenario?
-    //if (prev_loc != loc) warning("CoCoMalloc: Malloc'ed memory in other device (Previous device: %d, Malloc in: %d)\n", prev_loc, loc);
     cudaSetDevice(loc);
 	massert(cudaSuccess == cudaMemGetInfo(&free_cuda_mem, &max_cuda_mem), "backend_get_max_dim_Asset1D: cudaMemGetInfo failed");
 
@@ -72,10 +68,13 @@ void *gpu_malloc(long long count) {
   return ret;
 }
 
+#include <numa.h>
 void *pin_malloc(long long count) {
   void *ret;
-  massert(cudaMallocHost(&ret, count) == cudaSuccess,
-          cudaGetErrorString(cudaGetLastError()));
+  ret = numa_alloc_interleaved(count);
+  cudaHostRegister(ret,count,cudaHostRegisterPortable);
+	//massert(cudaHostAlloc ( &ret, count, cudaHostAllocDefault)  == cudaSuccess,
+  //       cudaGetErrorString(cudaGetLastError()));
   return ret;
 }
 

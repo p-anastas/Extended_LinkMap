@@ -202,8 +202,9 @@ void DataTile::operations_complete(CQueue_p assigned_exec_queue, LinkRoute_p* in
     //temp_block->set_owner(NULL,false);
     if (reduce_queue_ctr[W_master_idx] == REDUCE_WORKERS_PERDEV - 1) reduce_queue_ctr[W_master_idx] = 0; 
     else reduce_queue_ctr[W_master_idx]++;
-    CQueue_p WB_exec_queue = reduce_queue[W_master_idx][reduce_queue_ctr[W_master_idx]]; //[W_master_backend_ctr];
+    CQueue_p WB_exec_queue = reduce_queue[W_master_idx][0]; //[W_master_backend_ctr];
     WB_exec_queue->wait_for_event(temp_block->Available);
+    /*
     axpby_backend_in<double>* backend_axpby_wrapper[dim2]= {NULL};
     double** slide_addr_x = (double**) malloc(dim2*sizeof(double*)), 
     **slide_addr_y = (double**)  malloc(dim2*sizeof(double*));
@@ -226,10 +227,20 @@ void DataTile::operations_complete(CQueue_p assigned_exec_queue, LinkRoute_p* in
     //  (double*) *backend_axpby_wrapper[daxpy_dims]->x, backend_axpby_wrapper[daxpy_dims]->incx, 
     //  backend_axpby_wrapper[daxpy_dims]->beta,
     //  (double*)*backend_axpby_wrapper[daxpy_dims]->y, backend_axpby_wrapper[daxpy_dims]->incy);
-    //
-    }
-    W_complete = new Event(Writeback_id);
-    W_complete->record_to_queue(WB_exec_queue);
+    }*/
+    slaxpby_backend_in<double>* backend_slaxpby_wrapper = (slaxpby_backend_in<double>*) malloc(sizeof(struct slaxpby_backend_in<double>));
+    backend_slaxpby_wrapper->N = dim1;
+    backend_slaxpby_wrapper->incx = 1;
+    backend_slaxpby_wrapper->incy = 1;
+    backend_slaxpby_wrapper->alpha = 1.0;
+    backend_slaxpby_wrapper->beta = reduce_mult;
+    backend_slaxpby_wrapper->dev_id = Writeback_id;
+    backend_slaxpby_wrapper->x = (void**) &(temp_block->Adrs);
+    backend_slaxpby_wrapper->y = (void**) &(StoreBlock[Writeback_id_idx]->Adrs);
+    backend_slaxpby_wrapper->slide_x = dim2;
+    backend_slaxpby_wrapper->slide_y = get_chunk_size(Writeback_id_idx);
+    backend_run_operation(backend_slaxpby_wrapper, "Dslaxpby", WB_exec_queue);
+    W_reduce->record_to_queue(WB_exec_queue);
     //WB_exec_queue->sync_barrier();
     /*CBlock_wrap_p wrap_inval = NULL;
     wrap_inval = (CBlock_wrap_p) malloc (sizeof(struct CBlock_wrap));
@@ -288,7 +299,8 @@ LinkRoute_p DataTile::writeback(CBlock_p WB_block_candidate, LinkRoute_p in_rout
       }
       else{
         block_ptr[inter_hop] = WB_block;
-        best_route->hop_event_list[inter_hop-1] = NULL;
+        if (!(WB_block_candidate)) best_route->hop_event_list[inter_hop-1] = NULL;
+        else best_route->hop_event_list[inter_hop-1] = block_ptr[inter_hop]->Available;
       }
   
       best_route->hop_buf_list[inter_hop] = block_ptr[inter_hop]->Adrs;
@@ -431,6 +443,7 @@ Tile2D::Tile2D(void *in_addr, int in_dim1, int in_dim2,
 Tile2D::~Tile2D()
 {
   delete W_complete; 
+  delete W_reduce; 
   Tile2D_num--;
 }
 
@@ -479,6 +492,7 @@ Tile1D::Tile1D(void * in_addr, int in_dim,
 Tile1D::~Tile1D()
 {
   delete W_complete; 
+  delete W_reduce; 
   Tile1D_num--;
 }
 

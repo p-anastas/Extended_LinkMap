@@ -206,7 +206,7 @@ void Decomposer::SyncTileMap(){
     for (int itt2 = 0 ; itt2 < GridSz2; itt2++){
       Tile_map[itt1*GridSz2 + itt2]->W_complete->sync_barrier();
       if(!strcmp(OUTPUT_ALGO_MODE,"ALGO_WREDUCE")) Tile_map[itt1*GridSz2 + itt2]->
-        StoreBlock[idxize(Tile_map[itt1*GridSz2 + itt2]->get_initial_location())]->Available->sync_barrier();
+        W_reduce->sync_barrier();
       //if(!strcmp(OUTPUT_ALGO_MODE,"ALGO_WREDUCE")) for (int devi = 0; devi < LOC_NUM; devi++)
       //for (int ctri = 0; ctri < REDUCE_WORKERS_PERDEV; ctri++) 
       //if(reduce_queue[devi] && reduce_queue[devi][ctri]) reduce_queue[devi][ctri]->sync_barrier();

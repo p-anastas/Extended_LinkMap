@@ -35,6 +35,7 @@
 */
 
 void CoCoSyncCheckErr(){
+  int prev_loc = CoCoPeLiaGetDevice();
   for(int dev_idx = 0; dev_idx < LOC_NUM; dev_idx++)
   {
     CoCoPeLiaSelectDevice(deidxize(dev_idx)); 
@@ -42,6 +43,7 @@ void CoCoSyncCheckErr(){
     if (errSync != cudaSuccess)
       printf("Sync kernel error: %s\n", cudaGetErrorString(errSync));
   }
+  CoCoPeLiaSelectDevice(prev_loc); 
 }
 
 void CoCoASyncCheckErr(){

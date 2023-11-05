@@ -31,7 +31,7 @@ public:
     int W_master = -42;
     int W_pending = -42;
     int fired_times = 0; 
-    Event_p W_complete = NULL; 
+    Event_p W_complete = NULL, W_reduce = NULL; 
     int W_master_backend_ctr = -42;
     double reduce_mult; 
     // loc_map values mean: 

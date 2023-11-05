@@ -5,6 +5,7 @@
 ///
 
 #include <cblas.h>
+#include <omp.h>
 
 #include "backend_wrappers.hpp"
 

@@ -135,9 +135,19 @@ void HopMemcpyPrint(){
 			dest = inter_hop_locs[k][l];
 			iloc = l; 
 		}
-		timer_ctr[idxize(dest)][idxize(src)]++;
+		int dest_sh, src_sh;
+		if (final_estimated_link_bw[idxize(dest)][idxize(src)] == -1.0 && links_share_bandwidth[idxize(dest)][idxize(src)][0] != -42){
+			dest_sh = links_share_bandwidth[idxize(dest)][idxize(src)][0];
+			src_sh = links_share_bandwidth[idxize(dest)][idxize(src)][1];
+		}
+		else{
+			dest_sh = dest; 
+			src_sh = src;
+		}
+		
+		timer_ctr[idxize(dest_sh)][idxize(src_sh)]++;
 		double time = (inter_hop_timers[k][iloc-1][2] - inter_hop_timers[k][0][1]), pipe_time = (inter_hop_timers[k][iloc-1][2] - inter_hop_timers[k][0][0]);
-		link_gbytes_s[idxize(dest)][idxize(src)]+=Gval_per_s(bytes[k], time);
+		link_gbytes_s[idxize(dest_sh)][idxize(src_sh)]+=Gval_per_s(bytes[k], time);
 		//lprintf(0, "Hop Trasfer %d->%d -> road: %s total_t = %lf ms ( %.3lf Gb/s ), pipelined_t = %lf ms ( %.3lf Gb/s )\n", 
 		//	inter_hop_locs[k][0], inter_hop_locs[k][iloc], printlist(inter_hop_locs[k], iloc+1),
 		//1000*time, Gval_per_s(bytes[k], time), 1000*pipe_time, Gval_per_s(bytes[k], pipe_time));
@@ -189,10 +199,21 @@ void HopMemcpyPrint(){
 
 	for(int k = 0; k < fast_trans_ctr; k++){
 		for(int l = 1; l < 5; l++) if(inter_hop_locs[k][l]!= -42){
-			timer_ctr[idxize(inter_hop_locs[k][l])][idxize(inter_hop_locs[k][l-1])]++;
+			int dest_sh, src_sh;
+			if (final_estimated_link_bw[idxize(inter_hop_locs[k][l])][idxize(inter_hop_locs[k][l-1])] == -1.0 && 
+				links_share_bandwidth[idxize(inter_hop_locs[k][l])][idxize(inter_hop_locs[k][l-1])][0] != -42){
+				dest_sh = links_share_bandwidth[idxize(inter_hop_locs[k][l])][idxize(inter_hop_locs[k][l-1])][0];
+				src_sh = links_share_bandwidth[idxize(inter_hop_locs[k][l])][idxize(inter_hop_locs[k][l-1])][1];
+			}
+			else{
+				dest_sh = inter_hop_locs[k][l]; 
+				src_sh = inter_hop_locs[k][l-1];
+			}
+			
+			timer_ctr[idxize(dest_sh)][idxize(src_sh)]++;
 			double time = (inter_hop_timers[k][l-1][2] - inter_hop_timers[k][l-1][1]), 
-				pipe_time = (inter_hop_timers[k][l-1][2] - inter_hop_timers[k][l-1][0]);
-			link_gbytes_s[idxize(inter_hop_locs[k][l])][idxize(inter_hop_locs[k][l-1])]+=Gval_per_s(bytes[k], time);
+			pipe_time = (inter_hop_timers[k][l-1][2] - inter_hop_timers[k][l-1][0]);
+			link_gbytes_s[idxize(dest_sh)][idxize(src_sh)]+=Gval_per_s(bytes[k], time);
 		}
 	}
 

@@ -24,7 +24,7 @@ double shared_bw_unroll(int dest, int src)
 // Naive fetch from initial data loc every time
 // Similar to cuBLASXt
 #ifdef P2P_FETCH_FROM_INIT 
-void LinkRoute::optimize(void* transfer_tile_wrapped){
+long double LinkRoute::optimize(void* transfer_tile_wrapped, int update_ETA_flag){
 #ifdef DEBUG
 	fprintf(stderr, "|-----> LinkRoute::optimize()\n");
 #endif
@@ -41,13 +41,14 @@ void LinkRoute::optimize(void* transfer_tile_wrapped){
 #ifdef DEBUG
 	fprintf(stderr, "<-----|\n");
 #endif
+  return 0;
 }
 #endif
 
 // Outdated fetch with preference to GPU tiles but with simple serial search for src
 // Similar to BLASX behaviour when its assumed topology does not fit to the interconnect
 #ifdef P2P_FETCH_FROM_GPU_SERIAL 
-void LinkRoute::optimize(void* transfer_tile_wrapped){
+long double LinkRoute::optimize(void* transfer_tile_wrapped, int update_ETA_flag){
     DataTile_p transfer_tile = (DataTile_p) transfer_tile_wrapped;
     hop_num = 2;
     int start_hop = -42, end_hop = -42;
@@ -59,14 +60,14 @@ void LinkRoute::optimize(void* transfer_tile_wrapped){
     }
 	hop_uid_list[0] = start_hop;
     hop_uid_list[1] = end_hop;
-
+  return 0;
 }
 #endif
 
 // Fetch selection based on 'distance' from available sources (if multiple exist)
 // Similar to XKBLAS and PARALiA 1.5
 #ifdef P2P_FETCH_FROM_GPU_DISTANCE
-void LinkRoute::optimize(void* transfer_tile_wrapped){
+long double LinkRoute::optimize(void* transfer_tile_wrapped, int update_ETA_flag){
     DataTile_p transfer_tile = (DataTile_p) transfer_tile_wrapped;
     hop_num = 2;
     int start_hop = -42, end_hop = -42;
@@ -84,13 +85,14 @@ void LinkRoute::optimize(void* transfer_tile_wrapped){
         }
     }
     hop_uid_list[0] = deidxize(pos_max);
+    return 0;
 }
 #endif
 
 // Fetch selection based on 'distance' from available sources (if multiple exist) 
 // Exactly like PARALiA 1.5 
 #ifdef P2P_FETCH_FROM_GPU_DISTANCE_PLUS
-void LinkRoute::optimize(void* transfer_tile_wrapped){
+long double LinkRoute::optimize(void* transfer_tile_wrapped, int update_ETA_flag){
     DataTile_p transfer_tile = (DataTile_p) transfer_tile_wrapped;
     hop_num = 2;
     int start_hop = -42, end_hop = -42;
@@ -112,7 +114,7 @@ void LinkRoute::optimize(void* transfer_tile_wrapped){
       event_status block_status = transfer_tile->StoreBlock[pos]->Available->query_status();
       if(block_status == COMPLETE || block_status == CHECKED || block_status == RECORDED){
         double current_link_bw = shared_bw_unroll(end_hop_idx, pos);
-        if (block_status == RECORDED) current_link_bw-=current_link_bw*FETCH_UNAVAILABLE_PENALTY;
+        if (block_status == RECORDED) current_link_bw-=current_link_bw*0.1; //FETCH_UNAVAILABLE_PENALTY=0.1
         if (current_link_bw > link_bw_max){
           link_bw_max = current_link_bw;
           pos_max = pos;
@@ -156,13 +158,13 @@ void LinkRoute::optimize(void* transfer_tile_wrapped){
     but StoreBlock[pos_max] was NULL after locking its cache...fixme\n", transfer_tile->id, end_hop, pos_max);
     */
    hop_uid_list[0] = deidxize(pos_max);
-  return;
+  return 0;
 }
 #endif
 
 // Naive, for comparison reasons mainly
 #ifdef CHAIN_FETCH_SERIAL
-void LinkRoute::optimize(void* transfer_tile_wrapped){
+long double LinkRoute::optimize(void* transfer_tile_wrapped, int update_ETA_flag){
     DataTile_p transfer_tile = (DataTile_p) transfer_tile_wrapped;
     hop_num = 1;
     for(int ctr = 0; ctr < LOC_NUM; ctr++){
@@ -170,11 +172,12 @@ void LinkRoute::optimize(void* transfer_tile_wrapped){
       else if(transfer_tile->loc_map[ctr] == 1 || transfer_tile->loc_map[ctr] == 2)
         hop_uid_list[hop_num++] = deidxize(ctr);
     }
+    return 0;
 }
 #endif
 
 #ifdef CHAIN_FETCH_RANDOM
-void LinkRoute::optimize(void* transfer_tile_wrapped){
+long double LinkRoute::optimize(void* transfer_tile_wrapped, int update_ETA_flag){
     DataTile_p transfer_tile = (DataTile_p) transfer_tile_wrapped;
     hop_num = 0;
     int loc_list[LOC_NUM];
@@ -188,6 +191,7 @@ void LinkRoute::optimize(void* transfer_tile_wrapped){
     for(int ctr = start_idx; ctr < hop_num; ctr++) hop_uid_list[hop_ctr++] = loc_list[ctr];
     for(int ctr = 0; ctr < start_idx; ctr++) hop_uid_list[hop_ctr++] = loc_list[ctr];
     hop_num++;
+    return 0;
 }
 #endif
 
@@ -203,7 +207,7 @@ long factorial(const int n)
 }
 
 #ifdef CHAIN_FETCH_TIME
-void LinkRoute::optimize(void* transfer_tile_wrapped){
+long double LinkRoute::optimize(void* transfer_tile_wrapped, int update_ETA_flag){
     DataTile_p transfer_tile = (DataTile_p) transfer_tile_wrapped;
     hop_num = 0;
     std::list<int> loc_list;
@@ -217,9 +221,12 @@ void LinkRoute::optimize(void* transfer_tile_wrapped){
         hop_num++;
       }
     }
-    if (hop_num == 1) hop_uid_list[1] = tmp_hop;
+    double best_t = 1e9; 
+    if (hop_num == 1){
+      hop_uid_list[1] = tmp_hop;
+      best_t = transfer_tile->size()/(1e9*shared_bw_unroll(hop_uid_list[1], hop_uid_list[0]));
+    }
     else{
-      double best_t = 1e9;
       int best_list[factorial(hop_num)][hop_num]; 
       int flag = 1, tie_list_num = 0;
       while (flag){
@@ -227,7 +234,7 @@ void LinkRoute::optimize(void* transfer_tile_wrapped){
         int temp_ctr = 0, prev = idxize(hop_uid_list[0]), templist[hop_num]; 
         for (int x : loc_list){
           templist[temp_ctr++] = x; 
-          temp_t = t_predict_bw_only_shared(x, prev,transfer_tile->size());
+          temp_t = transfer_tile->size()/(1e9*shared_bw_unroll(x, prev));
           if (temp_t > max_t) max_t = temp_t;
           total_t += temp_t;
           prev = idxize(x);
@@ -247,13 +254,14 @@ void LinkRoute::optimize(void* transfer_tile_wrapped){
         }
         flag = std::next_permutation(loc_list.begin(), loc_list.end());
       }
-      //fprintf(stderr,"Selecting location list[%s]: min_ETA = %lf\n", printlist(best_list,hop_num), min_ETA);
+      //fprintf(stderr,"Selecting location list[%s]: best_t = %lf\n", printlist(best_list,hop_num), best_t);
       int rand_tie_list = int(rand() % tie_list_num); 
       for(int ctr = 0; ctr < hop_num; ctr++)
         hop_uid_list[ctr+1] = best_list[rand_tie_list][ctr];
 
     }
     hop_num++; 
+    return best_t;
 }
 #endif
 

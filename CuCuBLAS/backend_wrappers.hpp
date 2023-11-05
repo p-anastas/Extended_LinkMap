@@ -38,6 +38,15 @@ public:
 	short dev_id;
 };
 
+template<typename VALUETYPE> class slaxpby_backend_in{
+public:
+	int N, incx, incy;
+	int slide_x, slide_y;
+	VALUETYPE alpha, beta;
+	void **x, **y;
+	short dev_id;
+};
+
 template<typename VALUETYPE> class axpby_backend_in{
 public:
 	int N, incx, incy;
@@ -150,5 +159,8 @@ void cblas_wrap_dgemv(void* backend_data);
 
 void cblas_wrap_dgemm(void* backend_data);
 void cblas_wrap_sgemm(void* backend_data);
+
+void custom_cpu_wrap_dslaxpby(void* backend_data);
+void custom_gpu_wrap_dslaxpby(void* backend_data);
 
 #endif

@@ -9,14 +9,13 @@
 
 #include<iostream>
 #include <string>
-
 #include <cstdlib>
 #include <cstring>
+#include <atomic>
 
 #include <stdio.h>
 #include <stdarg.h>
 
-#include <atomic>
 
 /*****************************************************/
 /// Generalised "Command queue" and "Event" definition (e.g. CUDA streams and Events for CUDA backend)

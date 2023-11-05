@@ -93,6 +93,12 @@ void backend_run_operation(void* backend_data, const char* opname, CQueue_p run_
     else if(ptr_ker_translate->dev_id >= 0) cublas_wrap_daxpby(backend_data, run_queue);
     else error("backend_run_operation(axpy,double): Not implemented for dev_id = %d\n", ptr_ker_translate->dev_id);
   }
+  else if(!strcmp(opname, "Dslaxpby")){
+    slaxpby_backend_in<double>* ptr_ker_translate = (slaxpby_backend_in<double>*) backend_data;
+    if(ptr_ker_translate->dev_id == -1) run_queue->add_host_func((void*)&custom_cpu_wrap_dslaxpby, backend_data);
+    else if(ptr_ker_translate->dev_id >= 0) error("backend_run_operation(sl_axpy,double): Not implemented for dev_id = %d\n", ptr_ker_translate->dev_id); //custom_gpu_wrap_dslaxpby(backend_data, run_queue);
+    else error("backend_run_operation(axpy,double): Not implemented for dev_id = %d\n", ptr_ker_translate->dev_id);
+  }
   else error("backend_run_operation: unkown/not implemented opname=%s\n", opname);
 }
 
