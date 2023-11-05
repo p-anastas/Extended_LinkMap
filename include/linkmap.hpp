@@ -113,7 +113,7 @@ void CoCoASyncCheckErr();
 void CoCoEnableLinks(short target_dev_i, short num_devices);
 
 // Malloc in loc with error-checking
-void* CoCoMalloc(long long N_bytes, short loc);
+void* CoCoMalloc(long long N_bytes, short loc, short W_flag);
 
 // Free in loc with error-checking
 void CoCoFree(void * ptr, short loc);

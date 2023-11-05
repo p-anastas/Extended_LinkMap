@@ -69,16 +69,18 @@ void *gpu_malloc(long long count) {
 }
 
 #include <numa.h>
-void *pin_malloc(long long count) {
+void *pin_malloc(long long count, short W_flag) {
   void *ret;
   ret = numa_alloc_interleaved(count);
+  //if (!W_flag) cudaHostRegister(ret,count,cudaHostRegisterPortable | cudaHostRegisterReadOnly);
+  //else 
   cudaHostRegister(ret,count,cudaHostRegisterPortable);
 	//massert(cudaHostAlloc ( &ret, count, cudaHostAllocDefault)  == cudaSuccess,
   //       cudaGetErrorString(cudaGetLastError()));
   return ret;
 }
 
-void* CoCoMalloc(long long bytes, short loc){
+void* CoCoMalloc(long long bytes, short loc, short W_flag){
   int count = 42;
   massert(CUBLAS_STATUS_SUCCESS == cudaGetDeviceCount(&count), "CoCoMalloc: cudaGetDeviceCount failed");
   void *ptr = NULL;
@@ -89,7 +91,7 @@ void* CoCoMalloc(long long bytes, short loc){
   }
   else if (-1 == loc) {
     //fprintf(stderr, "Allocating %lld bytes to pinned host...\n", bytes);
-	ptr = pin_malloc(bytes);
+	ptr = pin_malloc(bytes, W_flag);
 
   } else if (loc >= count || loc < 0)
     error("CoCoMalloc: Invalid device id/location\n");
