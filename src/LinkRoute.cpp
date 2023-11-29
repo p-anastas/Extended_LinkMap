@@ -281,6 +281,12 @@ long double LinkRoute::optimize(void* transfer_tile_wrapped, int update_ETA_flag
       }
     }
     if (hop_num == 1){
+      /*if (hop_uid_list[0] == LOC_NUM -1 && links_share_bandwidth[tmp_hop][LOC_NUM -1][0] != -42 && tmp_hop > links_share_bandwidth[tmp_hop][LOC_NUM -1][0]){
+	  	hop_num++;
+	  	hop_uid_list[1] = links_share_bandwidth[tmp_hop][LOC_NUM -1][0];
+	  	hop_uid_list[2] = tmp_hop;
+	  }
+      else*/ 
       hop_uid_list[1] = tmp_hop;
 #ifdef ENABLE_TRANSFER_HOPS
       min_ETA = optimize_hop_route(transfer_tile_wrapped, update_ETA_flag, hop_uid_list[1], hop_uid_list[0]);
@@ -349,7 +355,13 @@ long double LinkRoute::optimize(void* transfer_tile_wrapped, int update_ETA_flag
           transfer_tile->id, transfer_tile->GridId1, transfer_tile->GridId2,
           printlist(best_list[tie_list_num-1],hop_num), tie_list_num, min_ETA);
 #endif
-      for(int ctr = 0; ctr < hop_num; ctr++){
+	  int start_ctr = 0; 
+	  /*if (hop_uid_list[0] == LOC_NUM -1 && links_share_bandwidth[best_list[rand_tie_list][0]][LOC_NUM -1][0] != -42 && best_list[rand_tie_list][0] > links_share_bandwidth[best_list[rand_tie_list][0]][LOC_NUM -1][0]){
+	  	hop_num++;
+	  	hop_uid_list[1] = links_share_bandwidth[best_list[rand_tie_list][0]][LOC_NUM -1][0];
+	  	start_ctr++;
+	  }*/
+      for(int ctr = start_ctr; ctr < hop_num; ctr++){
         hop_uid_list[ctr+1] = best_list[rand_tie_list][ctr];
         if (update_ETA_flag) recv_queues[idxize(hop_uid_list[ctr+1])][idxize(hop_uid_list[ctr])]->ETA_set(min_ETA);
       }
@@ -372,7 +384,13 @@ long double LinkRoute::optimize_reverse(void* transfer_tile_wrapped, int update_
 #ifdef ENABLE_TRANSFER_HOPS
   long double min_ETA = optimize_hop_route(transfer_tile_wrapped, 0, end_hop, start_hop);
 #else
-	hop_uid_list[0] = start_hop;
+  hop_uid_list[0] = start_hop;
+  /*if (links_share_bandwidth[LOC_NUM - 1][start_hop][1]!= -42 && start_hop > links_share_bandwidth[LOC_NUM - 1][start_hop][1]){
+  	hop_num++;
+  	hop_uid_list[1] = links_share_bandwidth[LOC_NUM - 1][start_hop][1];
+  	hop_uid_list[2] = end_hop;
+  }
+  else*/ 
   hop_uid_list[1] = end_hop;
   long double temp_t = transfer_tile->size()/(1e9*shared_bw_unroll(hop_uid_list[1], hop_uid_list[0]));
   if (update_ETA_flag)

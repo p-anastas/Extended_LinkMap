@@ -162,7 +162,9 @@ void DataTile::operations_complete(CQueue_p assigned_exec_queue, LinkRoute_p* in
   if(WR == WRP){
     W_complete->record_to_queue(assigned_exec_queue);
 #ifdef SUBKERNELS_FIRE_WHEN_READY
+#ifdef ENABLE_SEND_RECV_OVERLAP
     *out_route_p = writeback(NULL, *out_route_p);
+#endif
 #endif
   }
   else if(WR_LAZY == WRP){

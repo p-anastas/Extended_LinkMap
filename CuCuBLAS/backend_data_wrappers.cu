@@ -119,8 +119,10 @@ void gpu_free(void *gpuptr) {
 }
 
 void pin_free(void *gpuptr) {
-  massert(cudaFreeHost(gpuptr) == cudaSuccess,
-          cudaGetErrorString(cudaGetLastError()));
+  cudaHostUnregister(gpuptr);
+  //numa_free(gpuptr,size);
+  //massert(cudaFreeHost(gpuptr) == cudaSuccess,
+  //        cudaGetErrorString(cudaGetLastError()));
 }
 
 void CoCoFree(void * ptr, short loc){
